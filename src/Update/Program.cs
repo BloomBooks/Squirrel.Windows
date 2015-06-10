@@ -124,12 +124,22 @@ namespace Squirrel.Update
                     { "l=|shortcut-locations=", "Comma-separated string of shortcut locations, e.g. 'Desktop,StartMenu'", v => shortcutArgs = v},
                 };
 
-                opts.Parse(args);
+                var unknownArgs = opts.Parse(args);
 
                 if (updateAction == UpdateAction.Unset) {
-                    ShowHelp();
+                    //ShowHelp();
+	                MessageBox.Show("Update.exe called with no recognized command. Arguments were " +
+	                                string.Join(" ", args));
                     return -1;
                 }
+
+	            if (unknownArgs.Any())
+	            {
+		            MessageBox.Show("Update.exe called with unexpected arguments: " + string.Join(" ", unknownArgs) +
+		                            ". Full arguments were " +
+		                            string.Join(" ", args));
+					// review: should we abort here? Original version did not even check for this.
+	            }
 
                 switch (updateAction) {
                 case UpdateAction.Install:
