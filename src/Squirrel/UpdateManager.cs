@@ -48,7 +48,7 @@ namespace Squirrel
             this.rootAppDirectory = Path.Combine(rootDirectory ?? GetLocalAppDataDirectory(), this.applicationName);
         }
 
-        public async Task<UpdateInfo> CheckForUpdate(bool ignoreDeltaUpdates = false, Action<int> progress = null)
+        public async Task<UpdateInfo> CheckForUpdate(bool ignoreDeltaUpdates = false, Action<int> progress = null, bool startOverIfNone = false)
         {
             var checkForUpdate = new CheckForUpdateImpl(rootAppDirectory);
 
@@ -74,7 +74,7 @@ namespace Squirrel
 
         public async Task FullInstall(bool silentInstall = false, Action<int> progress = null)
         {
-            var updateInfo = await CheckForUpdate();
+            var updateInfo = await CheckForUpdate(startOverIfNone: true);
             await DownloadReleases(updateInfo.ReleasesToApply);
 
             var applyReleases = new ApplyReleasesImpl(rootAppDirectory);

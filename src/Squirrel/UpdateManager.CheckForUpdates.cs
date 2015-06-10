@@ -25,7 +25,8 @@ namespace Squirrel
                 string updateUrlOrPath,
                 bool ignoreDeltaUpdates = false, 
                 Action<int> progress = null,
-                IFileDownloader urlDownloader = null)
+                IFileDownloader urlDownloader = null,
+                bool startOverIfNone = false)
             {
                 progress = progress ?? (_ => { });
 
@@ -114,7 +115,7 @@ namespace Squirrel
 
                 ret = determineUpdateInfo(localReleases, remoteReleases, ignoreDeltaUpdates);
                 progress(100);
-                if (!ret.ReleasesToApply.Any())
+                if (startOverIfNone && !ret.ReleasesToApply.Any())
                 {
                     // User has apparently re-run the installer for the version already installed.
                     // Assume the intent is to repair a broken installation.
