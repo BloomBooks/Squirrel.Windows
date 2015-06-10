@@ -16,7 +16,7 @@ namespace Squirrel
         StartMenu = 1 << 0,
         Desktop = 1 << 1,
         Startup = 1 << 2, // under authorName
-		StartMenuPrograms = 1 << 5, // in main list of Start menu
+        StartMenuPrograms = 1 << 5, // in main list of Start menu
         /// <summary>
         /// A shortcut in the application folder, useful for portable applications.
         /// </summary>
@@ -36,7 +36,10 @@ namespace Squirrel
         /// will return values from 0-100 and Complete, or Throw</param>
         /// <returns>An UpdateInfo object representing the updates to install.
         /// </returns>
-        Task<UpdateInfo> CheckForUpdate(bool ignoreDeltaUpdates = false, Action<int> progress = null);
+        /// <param name="startOverIfNone">This should be set only for a full install,
+        /// never for updates. If true, and if there are no updates, it wipes
+        /// the program directory and prepares to redo the installation.</param>
+        Task<UpdateInfo> CheckForUpdate(bool ignoreDeltaUpdates = false, Action<int> progress = null, bool startOverIfNone = false);
 
         /// <summary>
         /// Download a list of releases into the local package directory.
