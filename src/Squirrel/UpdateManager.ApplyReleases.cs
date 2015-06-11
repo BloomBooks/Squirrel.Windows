@@ -41,6 +41,17 @@ namespace Squirrel
                 if (release == null) {
                     if (attemptingFullInstall) {
                         this.Log().Info("No release to install, running the app");
+                        // JohnT: this doesn't work, because if the second argument ('isInitialInstall') is false, invokePostInstall does NOT
+                        // run the app.  And we mustn't make it do so, or it will try to run the app after installing updates,
+                        // since passing attemptingFullInstall for this argument in the other call below is what prevents running
+                        // the app post-install when it is already running and updating itself.
+                        // We could pass true here for isInitialInstall, but then the app will be invoked as if for the first time,
+                        // but it clearly isn't the first time, because it was already installed.
+                        // For our fork, it doesn't currently matter, because if we ARE running the full installer and there is
+                        // nothing to do, we redo everything, which means that at this point in the code there IS something
+                        // to install, namely, the current full release. So I'm just not trying to fix it for now.
+                        // If we need to make this run the app we probably need distinct arguments for isInitialInstall and
+                        // attemptingFullInstall (or 'runFullApp' or similar).
                         await invokePostInstall(updateInfo.CurrentlyInstalledVersion.Version, false, true, silentInstall);
                     }
 
@@ -308,8 +319,8 @@ namespace Squirrel
                     return null;
                 }
 
-				var startProgress = (done) * 100 / (done + releasesToApply.Count());
-				var endProgress = (done + 1) * 100 / (done + releasesToApply.Count());
+                var startProgress = (done) * 100 / (done + releasesToApply.Count());
+                var endProgress = (done + 1) * 100 / (done + releasesToApply.Count());
 
                 // If there are no deltas in our list, we're already done
                 if (releasesToApply.All(x => !x.IsDelta)) {
@@ -425,7 +436,7 @@ namespace Squirrel
                     squirrelApps.ForEach(x => CreateShortcutsForExecutable(Path.GetFileName(x), ShortcutLocation.Desktop | ShortcutLocation.StartMenu, isInitialInstall == false));
                 }
 
-                if (silentInstall) return;
+                if (!isInitialInstall || silentInstall) return;
 
                 var firstRunParam = isInitialInstall ? "--squirrel-firstrun" : "";
                 squirrelApps
