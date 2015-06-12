@@ -128,18 +128,18 @@ namespace Squirrel.Update
 
                 if (updateAction == UpdateAction.Unset) {
                     //ShowHelp();
-	                MessageBox.Show("Update.exe called with no recognized command. Arguments were " +
-	                                string.Join(" ", args));
+                    MessageBox.Show("Update.exe called with no recognized command. Arguments were " +
+                                    string.Join(" ", args));
                     return -1;
                 }
 
-	            if (unknownArgs.Any())
-	            {
-		            MessageBox.Show("Update.exe called with unexpected arguments: " + string.Join(" ", unknownArgs) +
-		                            ". Full arguments were " +
-		                            string.Join(" ", args));
-					// review: should we abort here? Original version did not even check for this.
-	            }
+                if (unknownArgs.Any())
+                {
+                    MessageBox.Show("Update.exe called with unexpected arguments: " + string.Join(" ", unknownArgs) +
+                                    ". Full arguments were " +
+                                    string.Join(" ", args));
+                    return -1;
+                }
 
                 switch (updateAction) {
                 case UpdateAction.Install:
