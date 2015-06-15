@@ -127,18 +127,35 @@ namespace Squirrel.Update
                 var unknownArgs = opts.Parse(args);
 
                 if (updateAction == UpdateAction.Unset) {
-                    //ShowHelp();
-                    MessageBox.Show("Update.exe called with no recognized command. Arguments were " +
-                                    string.Join(" ", args));
-                    return -1;
+					var message = "Update.exe called with no recognized command. Arguments were " +
+											string.Join(" ", args);
+	                if (NativeMethods.GetConsoleWindow() != IntPtr.Zero)
+	                {
+						// already have a console, run from command line, don't UI.
+						Console.WriteLine(message);
+		                ShowHelp();
+	                }
+	                else
+		                MessageBox.Show(message);
+	                return -1;
                 }
 
                 if (unknownArgs.Any())
                 {
-                    MessageBox.Show("Update.exe called with unexpected arguments: " + string.Join(" ", unknownArgs) +
-                                    ". Full arguments were " +
-                                    string.Join(" ", args));
-                    return -1;
+					var message = "Update.exe called with unexpected arguments: " + string.Join(" ", unknownArgs) +
+											". Full arguments were " +
+											string.Join(" ", args);
+					if (NativeMethods.GetConsoleWindow() == IntPtr.Zero)
+					{
+						// already have a console, run from command line, don't UI.
+						Console.WriteLine(message);
+						ShowHelp();
+					}
+					else
+	                {
+		                MessageBox.Show(message);
+	                }
+	                return -1;
                 }
 
                 switch (updateAction) {
