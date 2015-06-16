@@ -53,6 +53,9 @@ namespace Squirrel.Update
         [DllImport("kernel32.dll")]
         public static extern bool AttachConsole(int pid);
 
+		[DllImport("kernel32.dll", SetLastError = true)]
+		public static extern IntPtr GetConsoleWindow();
+
         [DllImport("Kernel32.dll", SetLastError=true)]
         public static extern IntPtr BeginUpdateResource(string pFileName, bool bDeleteExistingResources);
 
