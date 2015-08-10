@@ -159,7 +159,7 @@ namespace Squirrel
 				//upgrade, lose the original, and eventually the windows explorer cache loses it.
 				//There was another attempt at fixing this by finding all the shortcuts and updating them, but that didn't work in our testing and this seems simpler and more robust.
 				//There may be some other reason for the old approach of pointing at the icon of the app itself (e.g. could be a different icon)?
-				var iconPath = Path.Combine(Utility.AppDirForRelease(rootAppDirectory, thisRelease), "app.ico");
+				var iconPath = Path.Combine(rootAppDirectory, "app.ico");
 
 				var fileVerInfo = FileVersionInfo.GetVersionInfo(exePath);
 
