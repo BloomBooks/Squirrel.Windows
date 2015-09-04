@@ -155,13 +155,23 @@ namespace Squirrel
 
                 var exePath = Path.Combine(Utility.AppDirForRelease(rootAppDirectory, thisRelease), exeName);
 
-				//Review: using the app.ico in the root folder fixes the problem of losing the shortcut icon when we 
-				//upgrade, lose the original, and eventually the windows explorer cache loses it.
-				//There was another attempt at fixing this by finding all the shortcuts and updating them, but that didn't work in our testing and this seems simpler and more robust.
-				//There may be some other reason for the old approach of pointing at the icon of the app itself (e.g. could be a different icon)?
-				var iconPath = Path.Combine(rootAppDirectory, "app.ico");
+                //Review: using an icon in the root folder fixes the problem of losing the shortcut icon when we 
+                //upgrade, lose the original, and eventually the windows explorer cache loses it.
+                //There was another attempt at fixing this by finding all the shortcuts and updating them, but that didn't work in our testing and this seems simpler and more robust.
+                //There may be some other reason for the old approach of pointing at the icon of the app itself (e.g. could be a different icon)?
+                var iconPath = Path.ChangeExtension(Path.Combine(rootAppDirectory, exeName), "ico");
+                var versionIconPath = Path.ChangeExtension(exePath, "ico");
+                try
+                {
+                    if (File.Exists(versionIconPath))
+                        File.Copy(versionIconPath, iconPath, true);
+                }
+                catch (Exception)
+                {
+                    // ignore...most likely some earlier version of the icon is locked somehow, fairly harmless.
+                }
 
-				var fileVerInfo = FileVersionInfo.GetVersionInfo(exePath);
+                var fileVerInfo = FileVersionInfo.GetVersionInfo(exePath);
 
                 foreach (var f in (ShortcutLocation[]) Enum.GetValues(typeof(ShortcutLocation))) {
                     if (!locations.HasFlag(f)) continue;
