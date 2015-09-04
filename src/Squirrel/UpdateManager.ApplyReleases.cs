@@ -155,13 +155,24 @@ namespace Squirrel
 
                 var exePath = Path.Combine(Utility.AppDirForRelease(rootAppDirectory, thisRelease), exeName);
 
-				//Review: using the app.ico in the root folder fixes the problem of losing the shortcut icon when we 
-				//upgrade, lose the original, and eventually the windows explorer cache loses it.
-				//There was another attempt at fixing this by finding all the shortcuts and updating them, but that didn't work in our testing and this seems simpler and more robust.
-				//There may be some other reason for the old approach of pointing at the icon of the app itself (e.g. could be a different icon)?
-				var iconPath = Path.Combine(rootAppDirectory, "app.ico");
+                //Review: using the app.ico in the root folder fixes the problem of losing the shortcut icon when we 
+                //upgrade, lose the original, and eventually the windows explorer cache loses it.
+                //There was another attempt at fixing this by finding all the shortcuts and updating them, but that didn't work in our testing and this seems simpler and more robust.
+                //There may be some other reason for the old approach of pointing at the icon of the app itself (e.g. could be a different icon)?
+                var iconPath = Path.Combine(rootAppDirectory, "app.ico");
+                if (!File.Exists(iconPath))
+                {
+                    // app.ico is typically created as we set up the uninstall process by downloading the icon indicated
+                    // in the project's icon URL property. This will fail if installed while offline, so as a fall-back,
+                    // see if there is an ico file with the expected name.
+                    //var versionIconPath = Path.ChangeExtension(exePath, "ico"); // doesn't work for e.g. BloomAlpha.exe -> Bloom.ico
+                    // for now this fork is Bloom-only.
+                    var versionIconPath = Path.Combine(Utility.AppDirForRelease(rootAppDirectory, thisRelease), "Bloom.ico");
+                    if (File.Exists(versionIconPath))
+                        File.Copy(versionIconPath, iconPath);
+                }
 
-				var fileVerInfo = FileVersionInfo.GetVersionInfo(exePath);
+                var fileVerInfo = FileVersionInfo.GetVersionInfo(exePath);
 
                 foreach (var f in (ShortcutLocation[]) Enum.GetValues(typeof(ShortcutLocation))) {
                     if (!locations.HasFlag(f)) continue;
