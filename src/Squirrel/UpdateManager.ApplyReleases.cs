@@ -141,7 +141,7 @@ namespace Squirrel
                 File.WriteAllText(Path.Combine(rootAppDirectory, ".dead"), " ");
             }
 
-            public void CreateShortcutsForExecutable(string exeName, ShortcutLocation locations, bool updateOnly)
+            public void CreateShortcutsForExecutable(string exeName, ShortcutLocation locations, bool updateOnly, bool allUsers = false)
             {
                 this.Log().Info("About to create shortcuts for {0}, rootAppDir {1}", exeName, rootAppDirectory);
 
@@ -176,7 +176,7 @@ namespace Squirrel
                 foreach (var f in (ShortcutLocation[]) Enum.GetValues(typeof(ShortcutLocation))) {
                     if (!locations.HasFlag(f)) continue;
 
-                    var file = linkTargetForVersionInfo(f, zf, fileVerInfo);
+                    var file = linkTargetForVersionInfo(f, zf, fileVerInfo, allUsers);
                     var fileExists = File.Exists(file);
 
                     // NB: If we've already installed the app, but the shortcut
@@ -671,7 +671,7 @@ namespace Squirrel
                 return new DirectoryInfo(Path.Combine(rootAppDirectory, "app-" + releaseVersion));
             }
 
-            string linkTargetForVersionInfo(ShortcutLocation location, IPackage package, FileVersionInfo versionInfo)
+            string linkTargetForVersionInfo(ShortcutLocation location, IPackage package, FileVersionInfo versionInfo, bool allUsers = false)
             {
                 var possibleProductNames = new[] {
                     versionInfo.ProductName,
@@ -688,25 +688,25 @@ namespace Squirrel
                 var prodName = possibleCompanyNames.First(x => !String.IsNullOrWhiteSpace(x));
                 var pkgName = possibleProductNames.First(x => !String.IsNullOrWhiteSpace(x));
 
-                return getLinkTarget(location, pkgName, prodName);
+                return getLinkTarget(location, pkgName, prodName, true, allUsers);
             }
 
-            string getLinkTarget(ShortcutLocation location, string title, string applicationName, bool createDirectoryIfNecessary = true)
+            string getLinkTarget(ShortcutLocation location, string title, string applicationName, bool createDirectoryIfNecessary = true, bool allUsers = false)
             {
                 var dir = default(string);
 
                 switch (location) {
                 case ShortcutLocation.Desktop:
-                    dir = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
+                    dir = Environment.GetFolderPath(allUsers ? Environment.SpecialFolder.CommonDesktopDirectory : Environment.SpecialFolder.DesktopDirectory);
                     break;
                 case ShortcutLocation.StartMenu:
-                    dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.StartMenu), "Programs", applicationName);
+                    dir = Path.Combine(Environment.GetFolderPath(allUsers ? Environment.SpecialFolder.CommonStartMenu : Environment.SpecialFolder.StartMenu), "Programs", applicationName);
                     break;
                 case ShortcutLocation.StartMenuPrograms:
-                    dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.StartMenu), "Programs");
+                    dir = Path.Combine(Environment.GetFolderPath(allUsers ? Environment.SpecialFolder.CommonStartMenu : Environment.SpecialFolder.StartMenu), "Programs");
                     break;
                 case ShortcutLocation.Startup:
-                    dir = Environment.GetFolderPath (Environment.SpecialFolder.Startup);
+                    dir = Environment.GetFolderPath (allUsers ? Environment.SpecialFolder.CommonStartup : Environment.SpecialFolder.Startup);
                     break;
                 case ShortcutLocation.AppRoot:
                     dir = rootAppDirectory;

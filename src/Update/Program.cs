@@ -122,6 +122,7 @@ namespace Squirrel.Update
                     { "b=|baseUrl=", "Provides a base URL to prefix the RELEASES file packages with", v => baseUrl = v, true},
                     { "a=|process-start-args=", "Arguments that will be used when starting executable", v => processStartArgs = v, true},
                     { "l=|shortcut-locations=", "Comma-separated string of shortcut locations, e.g. 'Desktop,StartMenu'", v => shortcutArgs = v},
+					{ "allUsers", "Install for all users in Program files; requires admin privileges", _ => { }} // ignored here, has effect in Setup.
                 };
 
                 var unknownArgs = opts.Parse(args);
