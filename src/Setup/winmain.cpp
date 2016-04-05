@@ -38,8 +38,17 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	bool isQuiet = (cmdLine.Find(L"-s") >= 0);
 	bool weAreUACElevated = CUpdateRunner::AreWeUACElevated() == S_OK;
 	bool explicitMachineInstall = (cmdLine.Find(L"--machine") >= 0);
+	bool sharedByAllUsersInstall = wcsstr(lpCmdLine, L"--sharedByAllUsers");
 
-	if (explicitMachineInstall || weAreUACElevated) {
+	if (sharedByAllUsersInstall && !weAreUACElevated)
+	{
+		MessageBox(0L, L"All-users install requires the installer to be run with administrator privileges.", L"Cannot install", 0);
+		exitCode = 1314; // A required privilege is not held by the client.
+		goto out;
+	}
+
+
+	if ((explicitMachineInstall || weAreUACElevated) && !sharedByAllUsersInstall) {
 		exitCode = MachineInstaller::PerformMachineInstallSetup();
 		if (exitCode != 0) goto out;
 		isQuiet = true;
@@ -74,7 +83,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
 	// If we're UAC-elevated, we shouldn't be because it will give us permissions
 	// problems later. Just silently rerun ourselves.
-	if (weAreUACElevated) {
+	if (weAreUACElevated && !sharedByAllUsersInstall) {
 		wchar_t buf[4096];
 		HMODULE hMod = GetModuleHandle(NULL);
 		GetModuleFileNameW(hMod, buf, 4096);

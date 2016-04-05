@@ -123,7 +123,8 @@ namespace Squirrel
         /// <param name="locations">The locations to install the shortcut</param>
         /// <param name="updateOnly">Set to false during initial install, true 
         /// during app update.</param>
-        void CreateShortcutsForExecutable(string exeName, ShortcutLocation locations, bool updateOnly);
+        /// <param name="sharedByAllUsers">true to make shortcuts in appropriate common directories</param>
+        void CreateShortcutsForExecutable(string exeName, ShortcutLocation locations, bool updateOnly, bool sharedByAllUsers = false);
 
         /// <summary>
         /// Removes shortcuts created by CreateShortcutsForExecutable
