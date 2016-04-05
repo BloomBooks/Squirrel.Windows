@@ -16,6 +16,7 @@ using System.Threading.Tasks;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Net;
+using NuGet;
 
 namespace Squirrel
 {
@@ -176,15 +177,20 @@ namespace Squirrel
             }
         }
 
-        public static Task<Tuple<int, string>> InvokeProcessAsync(string fileName, string arguments, CancellationToken ct)
+        public static Task<Tuple<int, string>> InvokeProcessAsync(string fileName, string arguments, CancellationToken ct, string workingDirectory = "")
         {
             var psi = new ProcessStartInfo(fileName, arguments);
+            if (Environment.OSVersion.Platform != PlatformID.Win32NT && fileName.EndsWith (".exe", StringComparison.OrdinalIgnoreCase)) {
+                psi = new ProcessStartInfo("wine", fileName + " " + arguments);
+            }
+
             psi.UseShellExecute = false;
             psi.WindowStyle = ProcessWindowStyle.Hidden;
             psi.ErrorDialog = false;
             psi.CreateNoWindow = true;
             psi.RedirectStandardOutput = true;
             psi.RedirectStandardError = true;
+            psi.WorkingDirectory = workingDirectory;
 
             return InvokeProcessAsync(psi, ct);
         }
@@ -351,6 +357,11 @@ namespace Squirrel
             return Path.Combine(rootAppDirectory, "app-" + entry.Version.ToString());
         }
 
+        public static string AppDirForVersion(string rootAppDirectory, SemanticVersion version)
+        {
+            return Path.Combine(rootAppDirectory, "app-" + version.ToString());
+        }
+
         public static string PackageDirectoryForAppDir(string rootAppDirectory) 
         {
             return Path.Combine(rootAppDirectory, "packages");
@@ -402,6 +413,36 @@ namespace Squirrel
             return uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps;
         }
 
+        public static Uri AppendPathToUri(Uri uri, string path)
+        {
+            var builder = new UriBuilder(uri);
+            if (!builder.Path.EndsWith("/")) {
+                builder.Path += "/";
+            }
+
+            builder.Path += path;
+            return builder.Uri;
+        }
+
+        public static Uri EnsureTrailingSlash(Uri uri)
+        {
+            return AppendPathToUri(uri, "");
+        }
+
+        public static Uri AddQueryParamsToUri(Uri uri, IEnumerable<KeyValuePair<string, string>> newQuery)
+        {
+            var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+
+            foreach (var entry in newQuery) {
+                query[entry.Key] = entry.Value;
+            }
+
+            var builder = new UriBuilder(uri);
+            builder.Query = query.ToString();
+
+            return builder.Uri;
+        }
+
         public static void DeleteFileHarder(string path, bool ignoreIfFails = false)
         {
             try {
@@ -414,42 +455,13 @@ namespace Squirrel
             }
         }
 
-        public static async Task DeleteDirectoryWithFallbackToNextReboot(string dir)
+        public static async Task DeleteDirectoryOrJustGiveUp(string dir)
         {
             try {
                 await Utility.DeleteDirectory(dir);
             } catch (Exception ex) {
-                var message = String.Format("Uninstall failed to delete dir '{0}', punting to next reboot", dir);
-                LogHost.Default.WarnException(message, ex);
-
-                Utility.DeleteDirectoryAtNextReboot(dir);
+                var message = String.Format("Uninstall failed to delete dir '{0}'", dir);
             }
-        }
-
-        public static void DeleteDirectoryAtNextReboot(string directoryPath)
-        {
-            var di = new DirectoryInfo(directoryPath);
-
-            if (!di.Exists) {
-                Log().Warn("DeleteDirectoryAtNextReboot: does not exist - {0}", directoryPath);
-                return;
-            }
-
-            // NB: MoveFileEx blows up if you're a non-admin, so you always need a backup plan
-            di.GetFiles().ForEach(x => safeDeleteFileAtNextReboot(x.FullName));
-            di.GetDirectories().ForEach(x => DeleteDirectoryAtNextReboot(x.FullName));
-
-            safeDeleteFileAtNextReboot(directoryPath);
-        }
-
-        static void safeDeleteFileAtNextReboot(string name)
-        {
-            if (MoveFileEx(name, null, MoveFileFlags.MOVEFILE_DELAY_UNTIL_REBOOT)) return;
-
-            // Thank You, http://www.pinvoke.net/default.aspx/coredll.getlasterror
-            var lastError = Marshal.GetLastWin32Error();
-
-            Log().Error("safeDeleteFileAtNextReboot: failed - {0} - {1}", name, lastError);
         }
 
         public static void LogIfThrows(this IFullLogger This, LogLevel level, string message, Action block)
@@ -571,6 +583,44 @@ namespace Squirrel
             MOVEFILE_WRITE_THROUGH = 0x00000008,
             MOVEFILE_CREATE_HARDLINK = 0x00000010,
             MOVEFILE_FAIL_IF_NOT_TRACKABLE = 0x00000020
+        }
+    }
+
+    static unsafe class UnsafeUtility
+    {
+        public static List<Tuple<string, int>> EnumerateProcesses()
+        {
+            int length = 0;
+            var pids = new int[2048];
+
+            fixed(int* p = pids) {
+                if (!NativeMethods.EnumProcesses((IntPtr)p, sizeof(int) * pids.Length, out length)) {
+                    throw new Win32Exception("Failed to enumerate processes");
+                }
+
+                if (length < 1) throw new Exception("Failed to enumerate processes");
+            }
+
+            return Enumerable.Range(0, length)
+                .Where(i => pids[i] > 0)
+                .Select(i => {
+                    try {
+                        var hProcess = NativeMethods.OpenProcess(ProcessAccess.QueryLimitedInformation, false, pids[i]);
+                        if (hProcess == IntPtr.Zero) throw new Win32Exception();
+
+                        var sb = new StringBuilder(256);
+                        var capacity = sb.Capacity;
+                        if (!NativeMethods.QueryFullProcessImageName(hProcess, 0, sb, ref capacity)) {
+                            throw new Win32Exception();
+                        }
+
+                        NativeMethods.CloseHandle(hProcess);
+                        return Tuple.Create(sb.ToString(), pids[i]);
+                    } catch (Exception) {
+                        return Tuple.Create(default(string), pids[i]);
+                    }
+                })
+                .ToList();
         }
     }
 

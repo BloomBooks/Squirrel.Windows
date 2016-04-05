@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Win32;
 using Splat;
+using NuGet;
 
 namespace Squirrel
 {
@@ -88,7 +89,7 @@ namespace Squirrel
         /// executable</param>
         /// <returns>The running version, or null if this is not a Squirrel
         /// installed app (i.e. you're running from VS)</returns>
-        Version CurrentlyInstalledVersion(string executable = null);
+        SemanticVersion CurrentlyInstalledVersion(string executable = null);
 
         /// <summary>
         /// Creates an entry in Programs and Features based on the currently 
@@ -123,8 +124,10 @@ namespace Squirrel
         /// <param name="locations">The locations to install the shortcut</param>
         /// <param name="updateOnly">Set to false during initial install, true 
         /// during app update.</param>
+        /// <param name="programArguments">The arguments to code into the shortcut</param>
+        /// <param name="icon">The shortcut icon</param>
         /// <param name="sharedByAllUsers">true to make shortcuts in appropriate common directories</param>
-        void CreateShortcutsForExecutable(string exeName, ShortcutLocation locations, bool updateOnly, bool sharedByAllUsers = false);
+        void CreateShortcutsForExecutable(string exeName, ShortcutLocation locations, bool updateOnly, string programArguments, string icon, bool sharedByAllUsers = false);
 
         /// <summary>
         /// Removes shortcuts created by CreateShortcutsForExecutable
@@ -181,7 +184,8 @@ namespace Squirrel
             This.CreateShortcutsForExecutable(Path.GetFileName(
                 Assembly.GetEntryAssembly().Location),
                 ShortcutLocation.Desktop | ShortcutLocation.StartMenu, 
-                Environment.CommandLine.Contains("squirrel-install") == false);
+                Environment.CommandLine.Contains("squirrel-install") == false,
+                null, null);
         }
 
         public static void RemoveShortcutForThisExe(this IUpdateManager This)

@@ -47,6 +47,10 @@ namespace Squirrel
 
                 string releaseFile;
 
+                var latestLocalRelease = localReleases.Count() > 0 ? 
+                    localReleases.MaxBy(x => x.Version).First() : 
+                    default(ReleaseEntry);
+
                 // Fetch the remote RELEASES file, whether it's a local dir or an 
                 // HTTP URL
                 if (Utility.IsHttpUrl(updateUrlOrPath)) {
@@ -61,7 +65,17 @@ namespace Squirrel
                 retry:
 
                     try {
-                        var data = await urlDownloader.DownloadUrl(String.Format("{0}/{1}", updateUrlOrPath, "RELEASES"));
+                        var uri = Utility.AppendPathToUri(new Uri(updateUrlOrPath), "RELEASES");
+
+                        if (latestLocalRelease != null) {
+                            uri = Utility.AddQueryParamsToUri(uri, new Dictionary<string, string> {
+                                { "id", latestLocalRelease.PackageName },
+                                { "localVersion", latestLocalRelease.Version.ToString() },
+                                { "arch", Environment.Is64BitOperatingSystem ? "amd64" : "x86" }
+                            });
+                        }
+
+                        var data = await urlDownloader.DownloadUrl(uri.ToString());
                         releaseFile = Encoding.UTF8.GetString(data);
                     } catch (WebException ex) {
                         this.Log().InfoException("Download resulted in WebException (returning blank release list)", ex);
