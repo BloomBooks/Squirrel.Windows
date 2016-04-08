@@ -306,7 +306,6 @@ namespace Squirrel
             Task<string> installPackageToAppDir(UpdateInfo updateInfo, ReleaseEntry release)
             {
                 return Task.Run(async () => {
-                    var zipper = new FastZip();
                     var target = getDirectoryForRelease(release.Version);
 
                     // NB: This might happen if we got killed partially through applying the release
@@ -318,9 +317,8 @@ namespace Squirrel
                     target.Create();
 
                     this.Log().Info("Writing files to app directory: {0}", target.FullName);
-                    zipper.ExtractZip(
-                        Path.Combine(updateInfo.PackageDirectory, release.Filename),
-                        target.FullName, FastZip.Overwrite.Always, (o) => true, null, @"lib", true);
+                    ReleasePackage.ExtractZipDecoded(Path.Combine(updateInfo.PackageDirectory, release.Filename),
+                        target.FullName, @"lib");
 
                     // Move all of the files out of the lib/ dirs in the NuGet package
                     // into our target App directory.
