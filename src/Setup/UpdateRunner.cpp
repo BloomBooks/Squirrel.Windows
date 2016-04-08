@@ -137,7 +137,7 @@ int CUpdateRunner::ExtractUpdaterAndRun(wchar_t* lpCommandLine, bool useFallback
 	wchar_t logFile[MAX_PATH];
 	std::vector<CString> to_delete;
 
-	if (wcsstr(lpCommandLine, L"--sharedByAllUsers"))
+	if (wcsstr(lpCommandLine, L"--allUsers"))
 	{
 		// Bloom addition: install directly in program files(x86). Note that this automatically reverts to simply Program Files on a Win32 machine.
 		SHGetFolderPath(NULL, CSIDL_PROGRAM_FILESX86, NULL, SHGFP_TYPE_CURRENT, targetDir); // if need be try CSIDL_COMMON_APPDATA

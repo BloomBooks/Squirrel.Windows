@@ -126,8 +126,8 @@ namespace Squirrel
         /// during app update.</param>
         /// <param name="programArguments">The arguments to code into the shortcut</param>
         /// <param name="icon">The shortcut icon</param>
-        /// <param name="sharedByAllUsers">true to make shortcuts in appropriate common directories</param>
-        void CreateShortcutsForExecutable(string exeName, ShortcutLocation locations, bool updateOnly, string programArguments, string icon, bool sharedByAllUsers = false);
+        /// <param name="allUsers">true to make shortcuts in appropriate common directories</param>
+        void CreateShortcutsForExecutable(string exeName, ShortcutLocation locations, bool updateOnly, string programArguments, string icon, bool allUsers = false);
 
         /// <summary>
         /// Removes shortcuts created by CreateShortcutsForExecutable

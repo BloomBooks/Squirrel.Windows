@@ -31,8 +31,10 @@ namespace Squirrel
             return (int)pbi.InheritedFromUniqueProcessId;
         }
 
+		[DllImport("kernel32.dll", SetLastError = true)]
+        public static extern IntPtr GetConsoleWindow();
 
-        [DllImport("version.dll", SetLastError = true)]
+		[DllImport("version.dll", SetLastError = true)]
         [return:MarshalAs(UnmanagedType.Bool)] public static extern bool GetFileVersionInfo(
             string lpszFileName, 
             IntPtr dwHandleIgnored,
