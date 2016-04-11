@@ -38,7 +38,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	bool isQuiet = (cmdLine.Find(L"-s") >= 0);
 	bool weAreUACElevated = CUpdateRunner::AreWeUACElevated() == S_OK;
 	bool explicitMachineInstall = (cmdLine.Find(L"--machine") >= 0);
-	bool allUsersInstall = wcsstr(lpCmdLine, L"--allUsers");
+	bool allUsersInstall = (cmdLine.Find(L"--allUsers") >= 0);
 
 	if (allUsersInstall && !weAreUACElevated)
 	{
