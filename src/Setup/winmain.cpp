@@ -48,7 +48,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	bool weAreUACElevated = CUpdateRunner::AreWeUACElevated() == S_OK;
 	bool attemptingToRerun = (cmdLine.Find(L"--rerunningWithoutUAC") >= 0);
 
-	bool allUsersInstall = wcsstr(lpCmdLine, L"--allUsers");
+	bool allUsersInstall = (cmdLine.Find(L"--allUsers") >= 0);
 
 	if (allUsersInstall && !weAreUACElevated)
 	{
