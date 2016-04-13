@@ -115,10 +115,10 @@ namespace Squirrel
             installHelpers.CreateShortcutsForExecutable(exeName, locations, updateOnly, allUsers);
         }
 
-        public void RemoveShortcutsForExecutable(string exeName, ShortcutLocation locations)
+        public void RemoveShortcutsForExecutable(string exeName, ShortcutLocation locations, bool allUsers = false)
         {
             var installHelpers = new ApplyReleasesImpl(rootAppDirectory);
-            installHelpers.RemoveShortcutsForExecutable(exeName, locations);
+            installHelpers.RemoveShortcutsForExecutable(exeName, locations, allUsers);
         }
 
         public Version CurrentlyInstalledVersion(string executable = null)

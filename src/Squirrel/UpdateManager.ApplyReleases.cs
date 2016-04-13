@@ -213,7 +213,7 @@ namespace Squirrel
                 fixPinnedExecutables(zf.Version.Version);
             }
 
-            public void RemoveShortcutsForExecutable(string exeName, ShortcutLocation locations)
+            public void RemoveShortcutsForExecutable(string exeName, ShortcutLocation locations, bool allUsers = false)
             {
                 var releases = Utility.LoadLocalReleases(Utility.LocalReleaseFileForAppDir(rootAppDirectory));
                 var thisRelease = Utility.FindCurrentVersion(releases);
@@ -228,7 +228,7 @@ namespace Squirrel
                 foreach (var f in (ShortcutLocation[]) Enum.GetValues(typeof(ShortcutLocation))) {
                     if (!locations.HasFlag(f)) continue;
 
-                    var file = linkTargetForVersionInfo(f, zf, fileVerInfo);
+                    var file = linkTargetForVersionInfo(f, zf, fileVerInfo, allUsers);
 
                     this.Log().Info("Removing shortcut for {0} => {1}", exeName, file);
 
