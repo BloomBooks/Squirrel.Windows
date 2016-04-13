@@ -146,7 +146,6 @@ int CUpdateRunner::ExtractUpdaterAndRun(wchar_t* lpCommandLine, bool useFallback
 		SHGetFolderPath(NULL, CSIDL_LOCAL_APPDATA, NULL, SHGFP_TYPE_CURRENT, targetDir);
 	} else {
 		wchar_t username[512];
-		wchar_t uid[128];
 		wchar_t appDataDir[MAX_PATH];
 		ULONG unameSize = _countof(username);
 

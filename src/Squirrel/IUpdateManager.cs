@@ -135,7 +135,7 @@ namespace Squirrel
         /// <param name="exeName">The name of the executable, relative to the
         /// app install directory.</param>
         /// <param name="locations">The locations to install the shortcut</param>
-        void RemoveShortcutsForExecutable(string exeName, ShortcutLocation locations);
+        void RemoveShortcutsForExecutable(string exeName, ShortcutLocation locations, bool allUsers = false);
     }
 
     public static class EasyModeMixin
