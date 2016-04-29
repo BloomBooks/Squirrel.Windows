@@ -93,6 +93,7 @@ namespace Squirrel.Update
                 string setupIcon = default(string);
                 string shortcutArgs = default(string);
                 bool shouldWait = false;
+                bool allUsers = false;
 
                 opts = new OptionSet() {
                     "Usage: Squirrel.exe command [OPTS]",
@@ -122,7 +123,7 @@ namespace Squirrel.Update
                     { "b=|baseUrl=", "Provides a base URL to prefix the RELEASES file packages with", v => baseUrl = v, true},
                     { "a=|process-start-args=", "Arguments that will be used when starting executable", v => processStartArgs = v, true},
                     { "l=|shortcut-locations=", "Comma-separated string of shortcut locations, e.g. 'Desktop,StartMenu'", v => shortcutArgs = v},
-					{ "allUsers", "Install for all users in Program files (x86); requires admin privileges; no updates", _ => { }} // ignored here, has effect in Setup.
+                    { "allUsers", "Install for all users in Program files (x86); requires admin privileges; no updates", _ => allUsers = true }
                 };
 
                 var unknownArgs = opts.Parse(args);
@@ -166,7 +167,9 @@ namespace Squirrel.Update
                         AnimatedGifWindow.ShowWindow(TimeSpan.FromSeconds(0), animatedGifWindowToken.Token, progressSource);
                     }
 
-                    Install(silentInstall, progressSource, Path.GetFullPath(target)).Wait();
+                    // If we get allUsers we do NOT want to launch the program (running as admin!) afterwards. Passing silent here
+                    // will prevent that and has no other effects.
+                    Install(silentInstall || allUsers, progressSource, Path.GetFullPath(target)).Wait();
                     animatedGifWindowToken.Cancel();
                     break;
                 case UpdateAction.Uninstall:
