@@ -96,6 +96,7 @@ namespace Squirrel.Update
                 string shortcutArgs = default(string);
                 bool shouldWait = false;
                 bool noMsi = (Environment.OSVersion.Platform != PlatformID.Win32NT);        // NB: WiX doesn't work under Mono / Wine
+	            bool allUsers = false;
 
                 opts = new OptionSet() {
                     "Usage: Squirrel.exe command [OPTS]",
@@ -127,7 +128,7 @@ namespace Squirrel.Update
                     { "a=|process-start-args=", "Arguments that will be used when starting executable", v => processStartArgs = v, true},
                     { "l=|shortcut-locations=", "Comma-separated string of shortcut locations, e.g. 'Desktop,StartMenu'", v => shortcutArgs = v},
                     { "no-msi", "Don't generate an MSI package", v => noMsi = true},
-					{ "allUsers", "Install for all users in Program files (x86); requires admin privileges; no updates", _ => { }} // ignored here, has effect in Setup.
+					{ "allUsers", "Install for all users in Program files (x86); requires admin privileges; no updates", _ => allUsers = true }
                 };
 
                 var unknownArgs = opts.Parse(args);
@@ -176,7 +177,9 @@ namespace Squirrel.Update
                         AnimatedGifWindow.ShowWindow(TimeSpan.FromSeconds(0), animatedGifWindowToken.Token, progressSource);
                     }
 
-                    Install(silentInstall, progressSource, Path.GetFullPath(target)).Wait();
+					// If we get allUsers we do NOT want to launch the program (running as admin!) afterwards. Passing silent here
+					// will prevent that and has no other effects.
+                    Install(silentInstall || allUsers, progressSource, Path.GetFullPath(target)).Wait();
                     animatedGifWindowToken.Cancel();
                     break;
                 case UpdateAction.Uninstall:
