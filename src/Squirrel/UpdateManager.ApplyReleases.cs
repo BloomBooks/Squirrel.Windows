@@ -417,7 +417,7 @@ namespace Squirrel
                 // For each app, run the install command in-order and wait
                 if (!firstRunOnly) await squirrelApps.ForEachAsync(async exe => {
                     using (var cts = new CancellationTokenSource()) { 
-                        cts.CancelAfter(15 * 1000);
+                        cts.CancelAfter(30 * 1000); // Bloom --allUsers can take quite a while installing Andika
 
                         try {
                             await Utility.InvokeProcessAsync(exe, args, cts.Token);
