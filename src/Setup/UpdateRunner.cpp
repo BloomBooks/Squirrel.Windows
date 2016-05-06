@@ -257,6 +257,13 @@ int CUpdateRunner::ExtractUpdaterAndRun(wchar_t* lpCommandLine, bool useFallback
 		DeleteFile(to_delete[i]);
 	}
 
+	if (!wcsstr(lpCommandLine, L"-s")) // also covers --silent
+	{
+		MessageBox(0L, L"Installation of Bloom succeeded", L"Finished", 0);
+
+		//std::cout << L"Installation succeeded\n"; // doesn't work, command seems to be finished in DOS box before we get here
+	}
+
 	CloseHandle(pi.hProcess);
 	CloseHandle(pi.hThread);
 	return (int) dwExitCode;
