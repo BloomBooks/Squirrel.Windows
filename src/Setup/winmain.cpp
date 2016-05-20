@@ -6,6 +6,9 @@
 #include "FxHelper.h"
 #include "UpdateRunner.h"
 #include "MachineInstaller.h"
+#include "windows.h"
+#include "fcntl.h"
+#include "io.h"
 #include <cstdio>
 
 CAppModule _Module;
@@ -50,11 +53,50 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
 	bool allUsersInstall = (cmdLine.Find(L"--allUsers") >= 0);
 
-	if (allUsersInstall && !weAreUACElevated)
+	if (allUsersInstall && !weAreUACElevated && !isQuiet)
 	{
-		MessageBox(0L, L"All-users install requires the installer to be run with administrator privileges.", L"Cannot install", 0);
-		exitCode = 1314; // A required privilege is not held by the client.
-		goto out;
+		// We will give a warning but NOT exit. Per BL-3404, it seems sometimes AreWeUACElevated
+		// does not accurately indicate whether we will be able to install in program files.
+		// So, we try to give the user a hint of what might be wrong in case it fails, but
+		// go ahead and attempt the installation.
+
+		// This bit of magic allows a windows application to attach to the console of its parent
+		// (that is, to write to the DOS box from which we hope it was launched).
+		// If we can't attach to a parent console we just give up on sending this warning.
+		// Some of the examples from which this code was adapted create a private console for the
+		// program, but that isn't helpful in our most likely allUsers scenario when a domain
+		// admin is installing on a remote machine.
+		// If we really don't have admin privileges we will soon dialog saying we can't unpack the files.
+		if (AttachConsole(ATTACH_PARENT_PROCESS)) {
+			// A further part of the magic is to redirect unbuffered STDERR to the console.
+			// We don't bother with stdout because we don't use it, but if we did it would
+			// require its own redirection.
+			HANDLE consoleHandleError = GetStdHandle(STD_ERROR_HANDLE);
+			int fdError = _open_osfhandle((intptr_t)consoleHandleError, _O_TEXT);
+			FILE * fpError = _fdopen(fdError, "w");
+			*stderr = *fpError;
+			setvbuf(stderr, NULL, _IONBF, 0);
+
+			// Now we can actually write a message to stderr.
+			fwprintf(stderr, L"\nWarning: all-users install requires the installer to be run with administrator privileges.\n");
+			fflush(stderr);
+
+			// Unfortunately, the dos box doesn't know to wait for this application to finish, so the
+			// output appears following a command prompt. This attempts to type a return key to get a fresh prompt.
+			INPUT ip;
+			// Set up a generic keyboard event.
+			ip.type = INPUT_KEYBOARD;
+			ip.ki.wScan = 0; // hardware scan code for key
+			ip.ki.time = 0;
+			ip.ki.dwExtraInfo = 0;
+			// Send the "Enter" key
+			ip.ki.wVk = 0x0D; // virtual-key code for the "Enter" key
+			ip.ki.dwFlags = 0; // 0 for key press
+			SendInput(1, &ip, sizeof(INPUT));
+			// Release the "Enter" key
+			ip.ki.dwFlags = KEYEVENTF_KEYUP;  // KEYEVENTF_KEYUP for key release
+			SendInput(1, &ip, sizeof(INPUT));
+		}
 	}
 
 	if (weAreUACElevated && attemptingToRerun) {
