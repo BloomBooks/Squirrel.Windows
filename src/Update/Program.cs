@@ -128,7 +128,8 @@ namespace Squirrel.Update
                     { "a=|process-start-args=", "Arguments that will be used when starting executable", v => processStartArgs = v, true},
                     { "l=|shortcut-locations=", "Comma-separated string of shortcut locations, e.g. 'Desktop,StartMenu'", v => shortcutArgs = v},
                     { "no-msi", "Don't generate an MSI package", v => noMsi = true},
-					{ "allUsers", "Install for all users in Program files (x86); requires admin privileges; no updates", _ => allUsers = true }
+                    { "allUsers", "Install for all users in Program files (x86); requires admin privileges; no updates", _ => allUsers = true },
+                    { "rerunningWithoutUAC", "Ignored...passed when master installer accidentally run from admin prompt", _ => {} }
                 };
 
                 var unknownArgs = opts.Parse(args);
