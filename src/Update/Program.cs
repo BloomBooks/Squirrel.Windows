@@ -205,8 +205,7 @@ namespace Squirrel.Update
                     break;
 #endif
                 case UpdateAction.Releasify:
-                    Releasify(target, releaseDir, packagesDir, bootstrapperExe, backgroundGif, signingParameters, baseUrl, setupIcon, !noMsi);
-                    break;
+                    return Releasify(target, releaseDir, packagesDir, bootstrapperExe, backgroundGif, signingParameters, baseUrl, setupIcon, !noMsi);
                 }
             }
 
@@ -342,7 +341,7 @@ namespace Squirrel.Update
             }
         }
 
-        public void Releasify(string package, string targetDir = null, string packagesDir = null, string bootstrapperExe = null, string backgroundGif = null, string signingOpts = null, string baseUrl = null, string setupIcon = null, bool generateMsi = true)
+        public int Releasify(string package, string targetDir = null, string packagesDir = null, string bootstrapperExe = null, string backgroundGif = null, string signingOpts = null, string baseUrl = null, string setupIcon = null, bool generateMsi = true)
         {
             if (baseUrl != null) {
                 if (!Utility.IsHttpUrl(baseUrl)) {
@@ -424,6 +423,15 @@ namespace Squirrel.Update
             var targetSetupExe = Path.Combine(di.FullName, "Setup.exe");
             var newestFullRelease = releaseEntries.MaxBy(x => x.Version).Where(x => !x.IsDelta).First();
 
+            var versionAdded = package.ToSemanticVersion();
+            if (!versionAdded.Equals(newestFullRelease.Version))
+            {
+                var msg = String.Format("Installer creation aborted...new package (version {0}) is not the most recent ({1})",
+                    versionAdded, newestFullRelease.Version);
+                Console.WriteLine(msg);
+                return -1;
+            }
+
             File.Copy(bootstrapperExe, targetSetupExe, true);
             var zipPath = createSetupEmbeddedZip(Path.Combine(di.FullName, newestFullRelease.Filename), di.FullName, backgroundGif, signingOpts).Result;
 
@@ -452,6 +460,7 @@ namespace Squirrel.Update
                     signPEFile(targetSetupExe.Replace(".exe", ".msi"), signingOpts).Wait();
                 }
             }
+            return 0;
         }
 
         public void Shortcut(string exeName, string shortcutArgs, string processStartArgs, string icon)
