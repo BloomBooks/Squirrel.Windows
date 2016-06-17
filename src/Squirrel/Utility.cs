@@ -654,7 +654,8 @@ namespace Squirrel
             st.Stop();
 
             if (fh == null) {
-                throw new Exception("Couldn't acquire lock, is another instance running");
+                throw new Exception("This run of the installer failed (could not acquire lock). This is usually caused by accidentally running the installer twice, in which case, the first one should succeed and you can ignore this. Otherwise, please restart your computer and try again. If you continue to see this, you may need to delete "
+					+ path);
             }
 
             handle = Disposable.Create(() => {
