@@ -24,7 +24,7 @@ namespace Squirrel
     {
         public static string RemoveByteOrderMarkerIfPresent(string content)
         {
-            return string.IsNullOrEmpty(content) ? 
+            return string.IsNullOrEmpty(content) ?
                 string.Empty : RemoveByteOrderMarkerIfPresent(Encoding.UTF8.GetBytes(content));
         }
 
@@ -331,9 +331,13 @@ namespace Squirrel
                 Log().Warn(message, ex);
             }
 
-            var fileOperations = files.ForEachAsync(file => {
-                File.SetAttributes(file, FileAttributes.Normal);
-                File.Delete(file);
+            var fileOperations = files.ForEachAsync(file =>
+            {
+	            RetryUtility.Retry(() =>
+	            {
+		            File.SetAttributes(file, FileAttributes.Normal);
+		            File.Delete(file);
+	            });
             });
 
             var directoryOperations =
@@ -344,8 +348,12 @@ namespace Squirrel
             Log().Debug("Now deleting folder: {0}", directoryPath);
             File.SetAttributes(directoryPath, FileAttributes.Normal);
 
-            try {
-                Directory.Delete(directoryPath, false);
+            try
+            {
+                RetryUtility.Retry(() =>
+                {
+                    Directory.Delete(directoryPath, false);
+                });
             } catch (Exception ex) {
                 var message = String.Format("DeleteDirectory: could not delete - {0}", directoryPath);
                 Log().ErrorException(message, ex);
@@ -362,7 +370,7 @@ namespace Squirrel
             return Path.Combine(rootAppDirectory, "app-" + version.ToString());
         }
 
-        public static string PackageDirectoryForAppDir(string rootAppDirectory) 
+        public static string PackageDirectoryForAppDir(string rootAppDirectory)
         {
             return Path.Combine(rootAppDirectory, "packages");
         }
@@ -381,7 +389,7 @@ namespace Squirrel
                 return ReleaseEntry.ParseReleaseFile(sr.ReadToEnd());
             }
         }
-            
+
         public static ReleaseEntry FindCurrentVersion(IEnumerable<ReleaseEntry> localReleases)
         {
             if (!localReleases.Any()) {
