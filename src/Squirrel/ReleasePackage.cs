@@ -160,34 +160,42 @@ namespace Squirrel
         // We must do this, or PathTooLongException may be thrown for some unicode entry names.
         public static void ExtractZipDecoded(string zipFilePath, string outFolder, string directoryFilter = null)
         {
-            var zf = new ZipFile(zipFilePath);
+            Utility.Retry(() =>
+            {
+                var zf = new ZipFile(zipFilePath);
 
-            foreach (ZipEntry zipEntry in zf) {
-                if (!zipEntry.IsFile) continue;
+                foreach(ZipEntry zipEntry in zf)
+                {
+                    if(!zipEntry.IsFile)
+                        continue;
 
-                var entryFileName = Uri.UnescapeDataString(zipEntry.Name);
+                    var entryFileName = Uri.UnescapeDataString(zipEntry.Name);
 
-                var buffer = new byte[4096];
-                var zipStream = zf.GetInputStream(zipEntry);
+                    var buffer = new byte[4096];
+                    var zipStream = zf.GetInputStream(zipEntry);
 
-                var fullZipToPath = Path.Combine(outFolder, entryFileName);
-                var directoryName = Path.GetDirectoryName(fullZipToPath);
-                var directoryFilter_ = new NameFilter(directoryFilter);
-                if (directoryFilter_.IsMatch(directoryName)) {
-                    if (directoryName.Length > 0) {
-                        Directory.CreateDirectory(directoryName);
-                    }
+                    var fullZipToPath = Path.Combine(outFolder, entryFileName);
+                    var directoryName = Path.GetDirectoryName(fullZipToPath);
+                    var directoryFilter_ = new NameFilter(directoryFilter);
+                    if(directoryFilter_.IsMatch(directoryName))
+                    {
+                        if(directoryName.Length > 0)
+                        {
+                            Directory.CreateDirectory(directoryName);
+                        }
 
-                    using (FileStream streamWriter = File.Create(fullZipToPath)) {
-                        StreamUtils.Copy(zipStream, streamWriter, buffer);
+                        using(FileStream streamWriter = File.Create(fullZipToPath))
+                        {
+                            StreamUtils.Copy(zipStream, streamWriter, buffer);
+                        }
                     }
                 }
-            }
-            zf.Close();
+                zf.Close();
+            });
         }
 
         // Create zip file with entry names %-encoded, as nupkg file does.
-        void createZipEncoded(string zipFilePath, string folder)
+    void createZipEncoded(string zipFilePath, string folder)
         {
             folder = Path.GetFullPath(folder);
             var offset = folder.Length + (folder.EndsWith("\\", StringComparison.OrdinalIgnoreCase) ? 1 : 0);
