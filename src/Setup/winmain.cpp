@@ -11,7 +11,7 @@
 #include "io.h"
 #include <cstdio>
 
-CAppModule _Module;
+CAppModule* _Module;
 
 typedef BOOL(WINAPI *SetDefaultDllDirectoriesFunction)(DWORD DirectoryFlags);
 
@@ -45,7 +45,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	ATLASSERT(SUCCEEDED(hr));
 
 	AtlInitCommonControls(ICC_COOL_CLASSES | ICC_BAR_CLASSES);
-	hr = _Module.Init(NULL, hInstance);
+	_Module = new CAppModule();
+	hr = _Module->Init(NULL, hInstance);
 
 	bool isQuiet = (cmdLine.Find(L"-s") >= 0);
 	bool weAreUACElevated = CUpdateRunner::AreWeUACElevated() == S_OK;
@@ -143,7 +144,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	exitCode = CUpdateRunner::ExtractUpdaterAndRun(lpCmdLine, false);
 
 out:
-	_Module.Term();
+	_Module->Term();
 	::CoUninitialize();
 	return exitCode;
 }
