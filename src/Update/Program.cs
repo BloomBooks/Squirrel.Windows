@@ -23,7 +23,7 @@ namespace Squirrel.Update
 {
     enum UpdateAction {
         Unset = 0, Install, Uninstall, Download, Update, Releasify, Shortcut, 
-        Deshortcut, ProcessStart, UpdateSelf,
+        Deshortcut, ProcessStart, UpdateSelf, CheckForUpdate
     }
 
     class Program : IEnableLogger 
@@ -106,6 +106,7 @@ namespace Squirrel.Update
                     { "install=", "Install the app whose package is in the specified directory", v => { updateAction = UpdateAction.Install; target = v; } },
                     { "uninstall", "Uninstall the app the same dir as Update.exe", v => updateAction = UpdateAction.Uninstall},
                     { "download=", "Download the releases specified by the URL and write new results to stdout as JSON", v => { updateAction = UpdateAction.Download; target = v; } },
+                    { "checkForUpdate=", "Check for one available update and writes new results to stdout as JSON", v => { updateAction = UpdateAction.CheckForUpdate; target = v; } },
                     { "update=", "Update the application to the latest remote version specified by URL", v => { updateAction = UpdateAction.Update; target = v; } },
                     { "releasify=", "Update or generate a releases directory with a given NuGet package", v => { updateAction = UpdateAction.Releasify; target = v; } },
                     { "createShortcut=", "Create a shortcut for the given executable name", v => { updateAction = UpdateAction.Shortcut; target = v; } },
@@ -192,6 +193,9 @@ namespace Squirrel.Update
                 case UpdateAction.Update:
                     Update(target).Wait();
                     break;
+                case UpdateAction.CheckForUpdate:
+                    Console.WriteLine(CheckForUpdate(target).Result);
+                    break;
                 case UpdateAction.UpdateSelf:
                     UpdateSelf().Wait();
                     break;
@@ -238,7 +242,7 @@ namespace Squirrel.Update
                     this.Log().Warn("Install path {0} already exists, burning it to the ground", mgr.RootAppDirectory);
 
                     mgr.KillAllExecutablesBelongingToPackage();
-                    await Task.Delay(250);
+                    await Task.Delay(500);
 
                     await this.ErrorIfThrows(() => Utility.DeleteDirectory(mgr.RootAppDirectory),
                         "Failed to remove existing directory on full install, is the app still running???");
@@ -331,6 +335,28 @@ namespace Squirrel.Update
             }
         }
 
+        public async Task<string> CheckForUpdate(string updateUrl, string appName = null)
+        {
+            appName = appName ?? getAppNameFromDirectory();
+
+            this.Log().Info("Fetching update information, downloading from " + updateUrl);
+            using (var mgr = new UpdateManager(updateUrl, appName)) {
+                var updateInfo = await mgr.CheckForUpdate(progress: x => Console.WriteLine(x));
+                var releaseNotes = updateInfo.FetchReleaseNotes();
+
+                var sanitizedUpdateInfo = new {
+                    currentVersion = updateInfo.CurrentlyInstalledVersion.Version.ToString(),
+                    futureVersion = updateInfo.FutureReleaseEntry.Version.ToString(),
+                    releasesToApply = updateInfo.ReleasesToApply.Select(x => new {
+                        version = x.Version.ToString(),
+                        releaseNotes = releaseNotes.ContainsKey(x) ? releaseNotes[x] : "",
+                    }).ToArray(),
+                };
+
+                return SimpleJson.SerializeObject(sanitizedUpdateInfo);
+            }
+        }
+
         public async Task Uninstall(string appName = null)
         {
             this.Log().Info("Starting uninstall for app: " + appName);
@@ -390,10 +416,17 @@ namespace Squirrel.Update
 
                 var rp = new ReleasePackage(file.FullName);
                 rp.CreateReleasePackage(Path.Combine(di.FullName, rp.SuggestedReleaseFileName), packagesDir, contentsPostProcessHook: pkgPath => {
+                    new DirectoryInfo(pkgPath).GetAllFilesRecursively()
+                        .Where(x => x.Name.ToLowerInvariant().EndsWith(".exe"))
+                        .Where(x => !x.Name.ToLowerInvariant().Contains("squirrel.exe"))
+                        .ForEachAsync(x => createExecutableStubForExe(x.FullName))
+                        .Wait();
+
                     if (signingOpts == null) return;
 
                     new DirectoryInfo(pkgPath).GetAllFilesRecursively()
                         .Where(x => x.Name.ToLowerInvariant().EndsWith(".exe"))
+                        .Where(x => Utility.ExecutableUsesWin32Subsystem(x.FullName))
                         .ForEachAsync(x => signPEFile(x.FullName, signingOpts))
                         .Wait();
                 });
@@ -523,7 +556,7 @@ namespace Squirrel.Update
                 .FirstOrDefault(x => Directory.Exists(x));
 
             // Check for the EXE name they want
-            var targetExe = new FileInfo(Path.Combine(latestAppDir, exeName));
+            var targetExe = new FileInfo(Path.Combine(latestAppDir, exeName.Replace("%20", " ")));
             this.Log().Info("Want to launch '{0}'", targetExe);
 
             // Check for path canonicalization attacks
@@ -631,14 +664,30 @@ namespace Squirrel.Update
             Tuple<int, string> processResult = await Utility.InvokeProcessAsync(exe,
                 String.Format("sign {0} \"{1}\"", signingOpts, exePath), CancellationToken.None);
 
-            if (processResult.Item1 != 0) {
-                var msg = String.Format(
-                    "Failed to sign, command invoked was: '{0} sign {1} {2}'", 
-                    exe, signingOpts, exePath);
+            if (processResult.Item1 != 0)
+            {
+                var optsWithPasswordHidden = new Regex(@"/p\s+\w+").Replace(signingOpts, "/p ********");
+                var msg = String.Format("Failed to sign, command invoked was: '{0} sign {1} {2}'",
+                    exe, optsWithPasswordHidden, exePath);
                 throw new Exception(msg);
             } else {
                 Console.WriteLine(processResult.Item2);
             }
+       }
+        async Task createExecutableStubForExe(string fullName)
+        {
+            var exe = findExecutable(@"StubExecutable.exe");
+
+            var target = Path.Combine(
+                Path.GetDirectoryName(fullName),
+                Path.GetFileNameWithoutExtension(fullName) + "_ExecutionStub.exe");
+
+            await Utility.CopyToAsync(exe, target);
+
+            await Utility.InvokeProcessAsync(
+                findExecutable("WriteZipToSetup.exe"), 
+                String.Format("--copy-stub-resources \"{0}\" \"{1}\"", fullName, target),
+                CancellationToken.None);
         }
 
         static async Task setPEVersionInfoAndIcon(string exePath, IPackage package, string iconPath = null)
@@ -696,13 +745,21 @@ namespace Squirrel.Update
             var company = String.Join(",", package.Authors);
 
             var templateText = File.ReadAllText(Path.Combine(pathToWix, "template.wxs"));
-            var templateResult = CopStache.Render(templateText, new Dictionary<string, string> {
+            var templateData = new Dictionary<string, string> {
                 { "Id", package.Id },
                 { "Title", package.Title },
                 { "Author", company },
                 { "Version", Regex.Replace(package.Version.ToString(), @"-.*$", "") },
                 { "Summary", package.Summary ?? package.Description ?? package.Id },
-            });
+            };
+
+            // NB: We need some GUIDs that are based on the package ID, but unique (i.e.
+            // "Unique but consistent").
+            for (int i=1; i <= 10; i++) {
+                templateData[String.Format("IdAsGuid{0}", i)] = Utility.CreateGuidFromHash(String.Format("{0}:{1}", package.Id, i)).ToString();
+            }
+
+            var templateResult = CopStache.Render(templateText, templateData);
 
             var wxsTarget = Path.Combine(setupExeDir, "Setup.wxs");
             File.WriteAllText(wxsTarget, templateResult, Encoding.UTF8);
