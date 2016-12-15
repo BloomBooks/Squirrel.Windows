@@ -310,11 +310,27 @@ namespace Squirrel
                     }
 
                     target.Create();
-
-                    this.Log().Info("Writing files to app directory: {0}", target.FullName);
-                    await ReleasePackage.ExtractZipForInstall(
-                        Path.Combine(updateInfo.PackageDirectory, release.Filename),
-                        target.FullName);
+                    try
+                    {
+                        this.Log().Info("Writing files to app directory: {0}", target.FullName);
+                        await ReleasePackage.ExtractZipForInstall(
+                            Path.Combine(updateInfo.PackageDirectory, release.Filename),
+                            target.FullName);
+                    }
+                    catch (Exception ex)
+                    {
+                        try
+                        {
+                            //Don't leave that empty directory there: its existence will prevent the user from even using the previous version.
+                            await Utility.DeleteDirectory(target.FullName);
+                        }
+                        catch (Exception error)
+                        {
+                            //This is going to be one very stuck user...
+                            this.Log().ErrorException("Failed to cleanup new directory after failed install: " + target.FullName, error);
+                        }
+                        throw ex;
+                    }
 
                     return target.FullName;
                 });
