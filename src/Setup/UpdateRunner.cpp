@@ -6,32 +6,49 @@
 
 void CUpdateRunner::DisplayErrorMessage(CString& errorMessage, wchar_t* logFile)
 {
+	const wchar_t* VIEW_HELP_LINK = L"http://community.bloomlibrary.org/t/how-to-fix-installation-problems";
 	CTaskDialog dlg;
-	TASKDIALOG_BUTTON buttons[] = {
-		{ 1, L"Open Setup Log", },
-		{ 2, L"Close", },
-	};
 
-	// TODO: Something about contacting support?
-	if (logFile == NULL) {
-		dlg.SetButtons(&buttons[1], 1, 1);
-	} else {
-		dlg.SetButtons(buttons, 2, 1);
+	TASKDIALOG_BUTTON viewHelpButton = { 0, L"View Installation Help", };
+	TASKDIALOG_BUTTON setupLogButton = { 1, L"Open Setup Log", };
+	// Apparently, the top-right X is also button '2', so make them match
+	TASKDIALOG_BUTTON closeButton = { 2, L"Close", };
+
+	TASKDIALOG_BUTTON buttons[3];
+	int buttonIndex = 0;
+	buttons[buttonIndex++] = viewHelpButton;
+	errorMessage += L"\n\nYou can view installation help at:\n";
+	errorMessage += VIEW_HELP_LINK;
+	if (logFile != NULL) {
+		buttons[buttonIndex++] = setupLogButton;
 	}
+	buttons[buttonIndex++] = closeButton;
+	dlg.SetButtons(buttons, buttonIndex, viewHelpButton.nButtonID);
 
 	dlg.SetMainInstructionText(L"Installation has failed");
 	dlg.SetContentText(errorMessage);
 	dlg.SetMainIcon(TD_ERROR_ICON);
+	dlg.SetWidth(230);
 
-	int nButton;
+	int nButton = -1;
+	// This loop is the only way I could figure out how to allow the user to select both
+	// the installation help and the setup log. Otherwise, the dialog closes as soon as any button
+	// is selected. The downside is that the dialog closes and reopens each time a button is clicked.
+	do {
+		if (FAILED(dlg.DoModal(::GetActiveWindow(), &nButton))) {
+			return;
+		}
 
-	if (FAILED(dlg.DoModal(::GetActiveWindow(), &nButton))) {
-		return;
-	}
-
-	if (nButton == 1 && logFile != NULL) {
-		ShellExecute(NULL, NULL, logFile, NULL, NULL, SW_SHOW);
-	}
+		if (nButton == viewHelpButton.nButtonID) {
+			ShellExecute(NULL, NULL, VIEW_HELP_LINK, NULL, NULL, SW_SHOW);
+		}
+		else if (nButton == setupLogButton.nButtonID && logFile != NULL) {
+			ShellExecute(NULL, NULL, logFile, NULL, NULL, SW_SHOW);
+		}
+		else {
+			nButton = closeButton.nButtonID;
+		}
+	} while (nButton != closeButton.nButtonID);
 }
 
 HRESULT CUpdateRunner::AreWeUACElevated()
@@ -172,7 +189,7 @@ int CUpdateRunner::ExtractUpdaterAndRun(wchar_t* lpCommandLine, bool useFallback
 		SHGetFolderPath(NULL, CSIDL_PROGRAM_FILESX86, NULL, SHGFP_TYPE_CURRENT, targetDir); // if need be try CSIDL_COMMON_APPDATA
 		goto gotADir;
 	}
-	
+
 	if (!useFallbackDir) {
 
 		SHGetFolderPath(NULL, CSIDL_LOCAL_APPDATA, NULL, SHGFP_TYPE_CURRENT, targetDir);
@@ -200,7 +217,7 @@ int CUpdateRunner::ExtractUpdaterAndRun(wchar_t* lpCommandLine, bool useFallback
 gotADir:
 
 	wcscat_s(targetDir, _countof(targetDir), L"\\SquirrelTemp");
-	
+
 	if (!CreateDirectory(targetDir, NULL) && GetLastError() != ERROR_ALREADY_EXISTS) {
 		wchar_t err[4096];
 		_swprintf_c(err, _countof(err), L"Unable to write to %s - IT policies may be restricting access to this folder", targetDir);
@@ -283,9 +300,7 @@ gotADir:
 	}
 
 	if (dwExitCode != 0) {
-		DisplayErrorMessage(CString(
-			L"There was an error while installing the application. " 
-			L"Check the setup log for more information and contact the author."), logFile);
+		DisplayErrorMessage(CString(L"The installer was not able to install Bloom."), logFile);
 	}
 
 	for (unsigned int i = 0; i < to_delete.size(); i++) {
