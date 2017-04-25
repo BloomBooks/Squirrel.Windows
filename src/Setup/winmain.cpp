@@ -63,6 +63,10 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
 		// This bit of magic allows a windows application to attach to the console of its parent
 		// (that is, to write to the DOS box from which we hope it was launched).
+		// Currently (since about 3.9) it doesn't seem to be working, and I can't figure out why.
+		// So I've gone back to the messagebox below.
+		// Keeping this code for now since it just possibly might do something helpful in a network
+		// install situation where the message box can't be seen.
 		// If we can't attach to a parent console we just give up on sending this warning.
 		// Some of the examples from which this code was adapted create a private console for the
 		// program, but that isn't helpful in our most likely allUsers scenario when a domain
@@ -97,6 +101,14 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 			// Release the "Enter" key
 			ip.ki.dwFlags = KEYEVENTF_KEYUP;  // KEYEVENTF_KEYUP for key release
 			SendInput(1, &ip, sizeof(INPUT));
+		}
+
+		if (MessageBox(0L, L"Warning: you appear to be attempting an allUsers install without required administrator privileges\n.Do you want to try anyway?",
+			L"Need to run as Administrator",
+			MB_YESNO | MB_DEFBUTTON2 | MB_ICONWARNING) != IDYES)
+		{
+			exitCode = E_FAIL;
+			goto out;
 		}
 	}
 
