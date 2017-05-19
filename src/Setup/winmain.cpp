@@ -103,7 +103,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 			SendInput(1, &ip, sizeof(INPUT));
 		}
 
-		if (MessageBox(0L, L"Warning: you appear to be attempting an allUsers install without required administrator privileges\n.Do you want to try anyway?",
+		if (MessageBox(0L, L"Warning: you appear to be attempting an allUsers install without required administrator privileges.\nDo you want to try anyway?",
 			L"Need to run as Administrator",
 			MB_YESNO | MB_DEFBUTTON2 | MB_ICONWARNING) != IDYES)
 		{
