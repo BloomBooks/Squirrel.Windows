@@ -18,6 +18,10 @@
 #include <tchar.h>
 #include <string>
 #include <iostream>
+#include <algorithm>
 
 
 // TODO: reference additional headers your program requires here
+#include <shlwapi.h>
+#include <wincodec.h>
+#include "SplashImageUtils.h"
