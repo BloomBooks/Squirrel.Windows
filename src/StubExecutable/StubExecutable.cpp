@@ -93,8 +93,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	std::wstring appName;
 	appName.assign(FindOwnExecutableName());
 
-	std::wstring fullPath = FindLatestAppDir();
-	fullPath += L"\\" + appName;
+	std::wstring workingDir(FindLatestAppDir());
+	std::wstring fullPath(workingDir + L"\\" + appName);
 
 	// If a Splash.png file named after the appName exists, create an event for the
 	// app to signal us with, load the image file, and display the splash image.
@@ -108,7 +108,14 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	si.dwFlags = STARTF_USESHOWWINDOW;
 	si.wShowWindow = nCmdShow;
 
-	if (!CreateProcess(fullPath.c_str(), lpCmdLine, NULL, NULL, true, 0, NULL, NULL, &si, &pi)) {
+	std::wstring cmdLine(L"\"");
+	cmdLine += fullPath;
+	cmdLine += L"\" ";
+	cmdLine += lpCmdLine;
+
+	wchar_t* lpCommandLine = wcsdup(cmdLine.c_str());
+	wchar_t* lpCurrentDirectory = wcsdup(workingDir.c_str());
+	if (!CreateProcess(NULL, lpCommandLine, NULL, NULL, true, 0, NULL, lpCurrentDirectory, &si, &pi)) {
 		::CoUninitialize();
 		return -1;
 	}

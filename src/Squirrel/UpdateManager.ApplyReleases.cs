@@ -12,8 +12,6 @@ using NuGet;
 using Splat;
 using System.Threading;
 using Squirrel.Shell;
-using ICSharpCode.SharpZipLib.Zip;
-using ICSharpCode.SharpZipLib.Core;
 using Microsoft.Win32;
 
 namespace Squirrel
@@ -315,7 +313,8 @@ namespace Squirrel
                         this.Log().Info("Writing files to app directory: {0}", target.FullName);
                         await ReleasePackage.ExtractZipForInstall(
                             Path.Combine(updateInfo.PackageDirectory, release.Filename),
-                            target.FullName);
+                            target.FullName,
+                        	rootAppDirectory);
                     }
                     catch (Exception ex)
                     {
@@ -516,6 +515,13 @@ namespace Squirrel
 
                 this.Log().Info("Old shortcut target: '{0}'", target);
 
+                // NB: In 1.5.0 we accidentally fixed the target of pinned shortcuts but left the arguments,
+                // so if we find a shortcut with --processStart in the args, we're gonna stomp it even though
+                // what we _should_ do is stomp it only if the target is Update.exe
+                if (shortcut.Arguments.Contains("--processStart")) {
+                    shortcut.Arguments = "";
+                }
+
                 if (!targetIsUpdateDotExe) {
                     target = Path.Combine(rootAppDirectory, Path.GetFileName(shortcut.Target));
                 } else {
@@ -545,12 +551,15 @@ namespace Squirrel
                         baseKey = RegistryKey.OpenBaseKey(RegistryHive.CurrentUser, view);
                         regKey = baseKey.OpenSubKey(@"SOFTWARE\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers");
 
+                        if (regKey == null) return;
+
                         var toDelete = regKey.GetValueNames()
                             .Where(x => x.StartsWith(rootAppDirectory, StringComparison.OrdinalIgnoreCase))
                             .ToList();
 
                         toDelete.ForEach(x =>
-                            this.Log().LogIfThrows(LogLevel.Warn, "Failed to delete key: " + x, () => regKey.DeleteValue(x)));
+                            this.Log().LogIfThrows(LogLevel.Warn, "Failed to delete key: " + x,
+                                () => regKey.DeleteValue(x)));
                     } catch (Exception e) {
                         this.Log().WarnException("Couldn't rewrite shim RegKey, most likely no apps are shimmed", e);
                     } finally {
@@ -624,10 +633,16 @@ namespace Squirrel
                     .Where(x => x.Name.ToLowerInvariant().Contains("app-"))
                     .Where(x => x.Name != currentVersionFolder && x.Name != originalVersionFolder);
 
+                // Get the current process list in an attempt to not burn 
+                // directories which have running processes
+                var runningProcesses = UnsafeUtility.EnumerateProcesses(); 
+
                 // Finally, clean up the app-X.Y.Z directories
                 await toCleanup.ForEachAsync(async x => {
                     try {
-                        await Utility.DeleteDirectoryOrJustGiveUp(x.FullName);
+                        if (runningProcesses.All(p => p.Item1 == null || !p.Item1.StartsWith(x.FullName, StringComparison.OrdinalIgnoreCase))) {
+                            await Utility.DeleteDirectoryOrJustGiveUp(x.FullName);
+                        }
 
                         if (Directory.Exists(x.FullName)) {
                             // NB: If we cannot clean up a directory, we need to make 
