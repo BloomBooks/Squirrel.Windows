@@ -13,15 +13,20 @@ using Splat;
 using Squirrel.Json;
 using NuGet;
 using System.Text.RegularExpressions;
+#if !MONO
+// Enhance: This is a way to enable the SIL additions which use MessageBox, without introducing a new
+// dependency on Windows.Forms. But it does mean our version won't work right on Mono.
+using System.Windows;
+#endif
 
 namespace Squirrel.Update
 {
     enum UpdateAction {
-        Unset = 0, Install, Uninstall, Download, Update, Releasify, Shortcut, 
+        Unset = 0, Install, Uninstall, Download, Update, Releasify, Shortcut,
         Deshortcut, ProcessStart, UpdateSelf, CheckForUpdate
     }
 
-    class Program : IEnableLogger 
+    class Program : IEnableLogger
     {
         static OptionSet opts;
 
@@ -40,7 +45,7 @@ namespace Squirrel.Update
 
         int main(string[] args)
         {
-            // NB: Trying to delete the app directory while we have Setup.log 
+            // NB: Trying to delete the app directory while we have Setup.log
             // open will actually crash the uninstaller
             bool isUninstalling = args.Any(x => x.Contains("uninstall"));
 
@@ -96,7 +101,7 @@ namespace Squirrel.Update
                 string frameworkVersion = "net45";
                 bool shouldWait = false;
                 bool noMsi = (Environment.OSVersion.Platform != PlatformID.Win32NT);        // NB: WiX doesn't work under Mono / Wine
-	            bool allUsers = false;
+                bool allUsers = false;
                 bool noDelta = false;
 
                 opts = new OptionSet() {
@@ -152,7 +157,12 @@ namespace Squirrel.Update
                         ShowHelp();
                     }
                     else
+                    {
+#if !MONO
+                        // Enhance: if we want our version to work in Mono we'll need to reference something that supports this
                         MessageBox.Show(message);
+#endif
+                    }
                     return -1;
                 }
 
@@ -169,7 +179,10 @@ namespace Squirrel.Update
                     }
                     else
                     {
+#if !MONO
+                        // Enhance: if we want our version to work in Mono we'll need to reference something that supports this
                         MessageBox.Show(message);
+#endif
                     }
                     return -1;
                 }
@@ -178,12 +191,12 @@ namespace Squirrel.Update
 #if !MONO
                 case UpdateAction.Install:
                     var progressSource = new ProgressSource();
-                    if (!silentInstall) { 
+                    if (!silentInstall) {
                         AnimatedGifWindow.ShowWindow(TimeSpan.FromSeconds(0), animatedGifWindowToken.Token, progressSource);
                     }
 
-					// If we get allUsers we do NOT want to launch the program (running as admin!) afterwards. Passing silent here
-					// will prevent that and has no other effects.
+                    // If we get allUsers we do NOT want to launch the program (running as admin!) afterwards. Passing silent here
+                    // will prevent that and has no other effects.
                     Install(silentInstall || allUsers, progressSource, Path.GetFullPath(target)).Wait();
                     animatedGifWindowToken.Cancel();
                     break;
@@ -253,7 +266,7 @@ namespace Squirrel.Update
                     this.ErrorIfThrows(() => Utility.Retry(() => Directory.CreateDirectory(mgr.RootAppDirectory), 3),
                         "Couldn't recreate app directory, perhaps Antivirus is blocking it");
                 }
- 
+
                 Directory.CreateDirectory(mgr.RootAppDirectory);
 
                 var updateTarget = Path.Combine(mgr.RootAppDirectory, "Update.exe");
@@ -556,7 +569,7 @@ namespace Squirrel.Update
             var releases = ReleaseEntry.ParseReleaseFile(
                 File.ReadAllText(Utility.LocalReleaseFileForAppDir(appDir), Encoding.UTF8));
 
-            // NB: We add the hacked up version in here to handle a migration 
+            // NB: We add the hacked up version in here to handle a migration
             // issue, where versions of Squirrel pre PR #450 will not understand
             // prerelease tags, so it will end up writing the release name sans
             // tags. However, the RELEASES file _will_ have them, so we need to look
@@ -714,7 +727,7 @@ namespace Squirrel.Update
             await Utility.CopyToAsync(exe, target);
 
             await Utility.InvokeProcessAsync(
-                Utility.FindHelperExecutable("WriteZipToSetup.exe"), 
+                Utility.FindHelperExecutable("WriteZipToSetup.exe"),
                 String.Format("--copy-stub-resources \"{0}\" \"{1}\"", fullName, target),
                 CancellationToken.None);
         }
@@ -784,7 +797,7 @@ namespace Squirrel.Update
 
             if (processResult.Item1 != 0) {
                 var msg = String.Format(
-                    "Failed to compile WiX template, command invoked was: '{0} {1}'\n\nOutput was:\n{2}", 
+                    "Failed to compile WiX template, command invoked was: '{0} {1}'\n\nOutput was:\n{2}",
                     "candle.exe", candleParams, processResult.Item2);
 
                 throw new Exception(msg);
@@ -796,7 +809,7 @@ namespace Squirrel.Update
 
             if (processResult.Item1 != 0) {
                 var msg = String.Format(
-                    "Failed to link WiX template, command invoked was: '{0} {1}'\n\nOutput was:\n{2}", 
+                    "Failed to link WiX template, command invoked was: '{0} {1}'\n\nOutput was:\n{2}",
                     "light.exe", lightParams, processResult.Item2);
 
                 throw new Exception(msg);
@@ -813,7 +826,7 @@ namespace Squirrel.Update
 
         static string pathToWixTools()
         {
-            var ourPath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location); 
+            var ourPath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
 
             // Same Directory? (i.e. released)
             if (File.Exists(Path.Combine(ourPath, "candle.exe"))) {
