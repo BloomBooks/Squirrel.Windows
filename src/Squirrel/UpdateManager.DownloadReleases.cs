@@ -61,10 +61,7 @@ namespace Squirrel
                                     component = toIncrement;
                                     progress((int) Math.Round(current += component));
                                 }
-
-	                            checksumPackage(x);
-							});
-                            
+                            });
                         }
                         catch (WebException ex) {
                             lastException = ex;
@@ -84,7 +81,6 @@ namespace Squirrel
                             true);
 
                         lock (progress) progress((int)Math.Round(current += toIncrement));
-                        checksumPackage(x);
                     });
                 }
             }
