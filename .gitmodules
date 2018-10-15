@@ -1,4 +1,5 @@
 [submodule "vendor/nuget"]
 	path = vendor/nuget
-	url = https://github.com/paulcbetts/NuGet
+	url = https://github.com/BloomBooks/NuGet.git
 	branch = master
+	
