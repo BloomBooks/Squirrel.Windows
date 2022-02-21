@@ -26,8 +26,7 @@ namespace Squirrel
                 string updateUrlOrPath,
                 bool ignoreDeltaUpdates = false,
                 Action<int> progress = null,
-                IFileDownloader urlDownloader = null,
-                bool startOverIfNone = false)
+                IFileDownloader urlDownloader = null)
             {
                 progress = progress ?? (_ => { });
 
@@ -46,8 +45,6 @@ namespace Squirrel
                         shouldInitialize = true;
                     }
                 }
-
-                restart:
 
                 if (shouldInitialize) await initializeClientAppDirectory();
 
@@ -136,17 +133,6 @@ namespace Squirrel
                 ret = determineUpdateInfo(intention, localReleases, remoteReleases, ignoreDeltaUpdates);
 
                 progress(100);
-                if (startOverIfNone && !ret.ReleasesToApply.Any())
-                {
-                    // User has apparently re-run the installer for the version already installed.
-                    // Assume the intent is to repair a broken installation.
-                    // These rather awkward steps cause it to erase the installed-version directory
-                    // and re-create it, much like a first-time install (though it won't run the app
-                    // with the special arguments for first-time).
-                    shouldInitialize = true;
-                    localReleases = Enumerable.Empty<ReleaseEntry>();
-                    goto restart;
-                }
                 return ret;
             }
 

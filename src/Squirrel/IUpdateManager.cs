@@ -44,10 +44,7 @@ namespace Squirrel
         /// will return values from 0-100 and Complete, or Throw</param>
         /// <returns>An UpdateInfo object representing the updates to install.
         /// </returns>
-        /// <param name="startOverIfNone">This should be set only for a full install,
-        /// never for updates. If true, and if there are no updates, it wipes
-        /// the program directory and prepares to redo the installation.</param>
-        Task<UpdateInfo> CheckForUpdate(bool ignoreDeltaUpdates = false, Action<int> progress = null, UpdaterIntention intention = UpdaterIntention.Update, bool startOverIfNone = false);
+        Task<UpdateInfo> CheckForUpdate(bool ignoreDeltaUpdates = false, Action<int> progress = null, UpdaterIntention intention = UpdaterIntention.Update);
 
         /// <summary>
         /// Download a list of releases into the local package directory.
