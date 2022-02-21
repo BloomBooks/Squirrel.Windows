@@ -15,7 +15,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Win32;
 using NuGet;
-using Splat;
+using Squirrel.SimpleSplat;
 using Squirrel.Shell;
 
 namespace Squirrel
@@ -49,12 +49,12 @@ namespace Squirrel
             this.rootAppDirectory = Path.Combine(rootDirectory ?? GetLocalAppDataDirectory(), this.applicationName);
         }
 
-        public async Task<UpdateInfo> CheckForUpdate(bool ignoreDeltaUpdates = false, Action<int> progress = null, bool startOverIfNone = false)
+        public async Task<UpdateInfo> CheckForUpdate(bool ignoreDeltaUpdates = false, Action<int> progress = null, UpdaterIntention intention = UpdaterIntention.Update, bool startOverIfNone = false)
         {
             var checkForUpdate = new CheckForUpdateImpl(rootAppDirectory);
 
             await acquireUpdateLock();
-            return await checkForUpdate.CheckForUpdate(Utility.LocalReleaseFileForAppDir(rootAppDirectory), updateUrlOrPath, ignoreDeltaUpdates, progress, urlDownloader, startOverIfNone);
+            return await checkForUpdate.CheckForUpdate(intention, Utility.LocalReleaseFileForAppDir(rootAppDirectory), updateUrlOrPath, ignoreDeltaUpdates, progress, urlDownloader, startOverIfNone);
         }
 
         public async Task DownloadReleases(IEnumerable<ReleaseEntry> releasesToDownload, Action<int> progress = null)
@@ -75,7 +75,7 @@ namespace Squirrel
 
         public async Task FullInstall(bool silentInstall = false, Action<int> progress = null)
         {
-            var updateInfo = await CheckForUpdate(startOverIfNone: true);
+            var updateInfo = await CheckForUpdate(intention: UpdaterIntention.Install, startOverIfNone: true);
             await DownloadReleases(updateInfo.ReleasesToApply);
 
             var applyReleases = new ApplyReleasesImpl(rootAppDirectory);
@@ -192,7 +192,7 @@ namespace Squirrel
 
             exiting = true;
 
-            Process.Start(getUpdateExe(), String.Format("--processStartAndWait {0} {1}", exeToStart, argsArg));
+            Process.Start(getUpdateExe(), String.Format("--processStartAndWait \"{0}\" {1}", exeToStart, argsArg));
 
             // NB: We have to give update.exe some time to grab our PID, but
             // we can't use WaitForInputIdle because we probably don't have
@@ -284,6 +284,27 @@ namespace Squirrel
                 updateLock = ret;
                 return ret;
             });
+        }
+
+        /// <summary>
+        /// Calculates the total percentage of a specific step that should report within a specific range.
+        /// <para />
+        /// If a step needs to report between 50 -> 75 %, this method should be used as CalculateProgress(percentage, 50, 75). 
+        /// </summary>
+        /// <param name="percentageOfCurrentStep">The percentage of the current step, a value between 0 and 100.</param>
+        /// <param name="stepStartPercentage">The start percentage of the range the current step represents.</param>
+        /// <param name="stepEndPercentage">The end percentage of the range the current step represents.</param>
+        /// <returns>The calculated percentage that can be reported about the total progress.</returns>
+        internal static int CalculateProgress(int percentageOfCurrentStep, int stepStartPercentage, int stepEndPercentage)
+        {
+            // Ensure we are between 0 and 100
+            percentageOfCurrentStep = Math.Max(Math.Min(percentageOfCurrentStep, 100), 0);
+
+            var range = stepEndPercentage - stepStartPercentage;
+            var singleValue = range / 100d;
+            var totalPercentage = (singleValue * percentageOfCurrentStep) + stepStartPercentage;
+
+            return (int)totalPercentage;
         }
 
         static string getApplicationName()

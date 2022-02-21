@@ -1,6 +1,6 @@
 #pragma once
 
-enum class NetVersion {net45=0, net451=1, net452=2, net46=3, net461=4, net462=5, net47=6, net471=7, net472=8};
+enum class NetVersion {net45=0, net451=1, net452=2, net46=3, net461=4, net462=5, net47=6, net471=7, net472=8, net48=9};
 
 class CFxHelper
 {
@@ -13,10 +13,9 @@ private:
 	static HRESULT HandleRebootRequirement(bool isQuiet);
 	static bool WriteRunOnceEntry();
 	static bool RebootSystem();
-	static int GetDotNetVersionReleaseNumber(NetVersion version);
+	static UINT GetDotNetVersionReleaseNumber(NetVersion version);
 	static UINT GetInstallerUrlForVersion(NetVersion version);
 	static UINT GetInstallerMainInstructionForVersion(NetVersion version);
 	static UINT GetInstallerContentForVersion(NetVersion version);
 	static UINT GetInstallerExpandedInfoForVersion(NetVersion version);
 };
-

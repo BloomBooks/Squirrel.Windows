@@ -1,5 +1,4 @@
 [submodule "vendor/nuget"]
 	path = vendor/nuget
-	url = https://github.com/BloomBooks/NuGet.git
-	branch = master
-	
+	url = https://github.com/paulcbetts/NuGet
+	branch = fix-prerelease-comparison

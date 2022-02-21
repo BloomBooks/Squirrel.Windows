@@ -10,7 +10,7 @@ using System.Security.AccessControl;
 using System.Security.Cryptography;
 using System.Security.Principal;
 using System.Threading;
-using Splat;
+using Squirrel.SimpleSplat;
 using System.Text;
 using System.Threading.Tasks;
 using System.Collections.Concurrent;
@@ -358,7 +358,7 @@ namespace Squirrel
             if (ModeDetector.InUnitTestRunner()) {
                 var vendorDir = Path.Combine(
                     Path.GetDirectoryName(Assembly.GetExecutingAssembly().CodeBase.Replace("file:///", "")),
-                    "..", "..", "..",
+                    "..", "..", "..", "..",
                     "vendor", "7zip"
                 );
                 return FindHelperExecutable("7z.exe", new[] { vendorDir });
@@ -673,7 +673,7 @@ namespace Squirrel
         static IFullLogger Log()
         {
             return logger ??
-                (logger = Locator.CurrentMutable.GetService<ILogManager>().GetLogger(typeof(Utility)));
+                (logger = SquirrelLocator.CurrentMutable.GetService<ILogManager>().GetLogger(typeof(Utility)));
         }
 
         [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]

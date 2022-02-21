@@ -5,7 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
-using Splat;
+using Squirrel.SimpleSplat;
 using DeltaCompressionDotNet.MsDelta;
 using System.ComponentModel;
 using Squirrel.Bsdiff;
@@ -21,7 +21,7 @@ namespace Squirrel
     public interface IDeltaPackageBuilder
     {
         ReleasePackage CreateDeltaPackage(ReleasePackage basePackage, ReleasePackage newPackage, string outputFile);
-        ReleasePackage ApplyDeltaPackage(ReleasePackage basePackage, ReleasePackage deltaPackage, string outputFile, Action<int> progress = null);
+        ReleasePackage ApplyDeltaPackage(ReleasePackage basePackage, ReleasePackage deltaPackage, string outputFile);
     }
 
     public class DeltaPackageBuilder : IEnableLogger, IDeltaPackageBuilder
@@ -92,12 +92,15 @@ namespace Squirrel
             return new ReleasePackage(outputFile);
         }
 
-        public ReleasePackage ApplyDeltaPackage(ReleasePackage basePackage, ReleasePackage deltaPackage, string outputFile, Action<int> progress = null)
+        public ReleasePackage ApplyDeltaPackage(ReleasePackage basePackage, ReleasePackage deltaPackage, string outputFile)
+        {
+            return ApplyDeltaPackage(basePackage, deltaPackage, outputFile, x => { });
+        }
+
+        public ReleasePackage ApplyDeltaPackage(ReleasePackage basePackage, ReleasePackage deltaPackage, string outputFile, Action<int> progress)
         {
             Contract.Requires(deltaPackage != null);
             Contract.Requires(!String.IsNullOrEmpty(outputFile) && !File.Exists(outputFile));
-            if (progress == null)
-                progress = i => { };
 
             string workingPath;
             string deltaPath;
@@ -110,20 +113,15 @@ namespace Squirrel
                 using (var reader = za.ExtractAllEntries()) {
                     reader.WriteAllToDirectory(deltaPath, opts);
                 }
-                // The percentages here are somewhat arbitrary and reflect typical Bloom file sizes.
-                // Probably not appropriate to push upstream.
-                // If you are thinking about improving this using FastZip's Progress event, check with JohnT.
-                // I experimented with it and found that the PercentCompleted which it reports is useless,
-                // toggling between 0 and 100% repeatedly...possibly it applies to a particular file?
-                // I also found that it is VERY expensive to turn on progress reporting while unzipping;
-                // seems to slow the process down to the point of making it take two to three times as long.
-                // This may of course improve in a later version of the library.
-                progress(10);
+
+                progress(25);
+
                 using (var za = ZipArchive.Open(basePackage.InputPackageFile))
                 using (var reader = za.ExtractAllEntries()) {
                     reader.WriteAllToDirectory(workingPath, opts);
                 }
-                progress(35);
+
+                progress(50);
 
                 var pathsVisited = new List<string>();
 
@@ -142,6 +140,8 @@ namespace Squirrel
                         applyDiffToFile(deltaPath, file, workingPath);
                     });
 
+                progress(75);
+
                 // Delete all of the files that were in the old package but
                 // not in the new one.
                 new DirectoryInfo(workingPath).GetAllFilesRecursively()
@@ -152,6 +152,8 @@ namespace Squirrel
                         File.Delete(Path.Combine(workingPath, x));
                     });
 
+                progress(80);
+
                 // Update all the files that aren't in 'lib' with the delta
                 // package's versions (i.e. the nuspec file, etc etc).
                 deltaPathRelativePaths
@@ -160,7 +162,6 @@ namespace Squirrel
                         this.Log().Info("Updating metadata file: {0}", x);
                         File.Copy(Path.Combine(deltaPath, x), Path.Combine(workingPath, x), true);
                     });
-                progress(50);
 
                 this.Log().Info("Repacking into full package: {0}", outputFile);
                 using (var za = ZipArchive.Create())
@@ -169,6 +170,7 @@ namespace Squirrel
                     za.AddAllFromDirectory(workingPath);
                     za.SaveTo(tgt);
                 }
+
                 progress(100);
             }
 

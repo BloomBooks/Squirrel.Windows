@@ -7,7 +7,7 @@ using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Win32;
-using Splat;
+using Squirrel.SimpleSplat;
 using NuGet;
 
 namespace Squirrel
@@ -24,12 +24,19 @@ namespace Squirrel
         AppRoot = 1 << 3
     }
 
+    public enum UpdaterIntention {
+        Install,
+        Update
+    }
+
     public interface IUpdateManager : IDisposable, IEnableLogger
     {
         /// <summary>
         /// Fetch the remote store for updates and compare against the current 
         /// version to determine what updates to download.
         /// </summary>
+        /// <param name="intention">Indicates whether the UpdateManager is used
+        /// in a Install or Update scenario.</param>
         /// <param name="ignoreDeltaUpdates">Set this flag if applying a release
         /// fails to fall back to a full release, which takes longer to download
         /// but is less error-prone.</param>
@@ -40,7 +47,7 @@ namespace Squirrel
         /// <param name="startOverIfNone">This should be set only for a full install,
         /// never for updates. If true, and if there are no updates, it wipes
         /// the program directory and prepares to redo the installation.</param>
-        Task<UpdateInfo> CheckForUpdate(bool ignoreDeltaUpdates = false, Action<int> progress = null, bool startOverIfNone = false);
+        Task<UpdateInfo> CheckForUpdate(bool ignoreDeltaUpdates = false, Action<int> progress = null, UpdaterIntention intention = UpdaterIntention.Update, bool startOverIfNone = false);
 
         /// <summary>
         /// Download a list of releases into the local package directory.
