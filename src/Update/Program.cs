@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
@@ -65,6 +66,7 @@ namespace Squirrel.Update
         {
             var animatedGifWindowToken = new CancellationTokenSource();
 
+#if !MONO
             // Uncomment to test Gifs
             /*
             var ps = new ProgressSource();
@@ -72,6 +74,7 @@ namespace Squirrel.Update
             AnimatedGifWindow.ShowWindow(TimeSpan.FromMilliseconds(0), animatedGifWindowToken.Token, ps);
             Thread.Sleep(10 * 60 * 1000);
             */
+#endif
 
             using (Disposable.Create(() => animatedGifWindowToken.Cancel())) {
 
@@ -494,7 +497,7 @@ namespace Squirrel.Update
             }
 
             File.Copy(bootstrapperExe, targetSetupExe, true);
-            var zipPath = createSetupEmbeddedZip(Path.Combine(di.FullName, newestFullRelease.Filename), di.FullName, backgroundGif, signingOpts).Result;
+            var zipPath = createSetupEmbeddedZip(Path.Combine(di.FullName, newestFullRelease.Filename), di.FullName, backgroundGif, signingOpts, setupIcon).Result;
 
             var writeZipToSetup = Utility.FindHelperExecutable("WriteZipToSetup.exe");
 
@@ -633,7 +636,7 @@ namespace Squirrel.Update
             }
         }
 
-        async Task<string> createSetupEmbeddedZip(string fullPackage, string releasesDir, string backgroundGif, string signingOpts)
+        async Task<string> createSetupEmbeddedZip(string fullPackage, string releasesDir, string backgroundGif, string signingOpts, string setupIcon)
         {
             string tempPath;
 
@@ -648,6 +651,12 @@ namespace Squirrel.Update
                     this.ErrorIfThrows(() => {
                         File.Copy(backgroundGif, Path.Combine(tempPath, "background.gif"));
                     }, "Failed to write animated GIF to temp dir: " + tempPath);
+                }
+
+                if (!String.IsNullOrWhiteSpace(setupIcon)) {
+                    this.ErrorIfThrows(() => {
+                        File.Copy(setupIcon, Path.Combine(tempPath, "setupIcon.ico"));
+                    }, "Failed to write icon to temp dir: " + tempPath);
                 }
 
                 var releases = new[] { ReleaseEntry.GenerateFromFile(fullPackage) };
@@ -771,6 +780,9 @@ namespace Squirrel.Update
             var setupExeDir = Path.GetDirectoryName(setupExe);
             var company = String.Join(",", package.Authors);
 
+            var culture = CultureInfo.GetCultureInfo(package.Language ?? "").TextInfo.ANSICodePage;
+
+
             var templateText = File.ReadAllText(Path.Combine(pathToWix, "template.wxs"));
             var templateData = new Dictionary<string, string> {
                 { "Id", package.Id },
@@ -778,6 +790,7 @@ namespace Squirrel.Update
                 { "Author", company },
                 { "Version", Regex.Replace(package.Version.ToString(), @"-.*$", "") },
                 { "Summary", package.Summary ?? package.Description ?? package.Id },
+                { "Codepage", $"{culture}" }
             };
 
             // NB: We need some GUIDs that are based on the package ID, but unique (i.e.
@@ -940,4 +953,3 @@ namespace Squirrel.Update
         }
     }
 }
-
