@@ -9,7 +9,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using NuGet;
-using Splat;
+using Squirrel.SimpleSplat;
 using System.Threading;
 using Squirrel.Shell;
 using Microsoft.Win32;
@@ -31,13 +31,12 @@ namespace Squirrel
             {
                 progress = progress ?? (_ => { });
 
-                var release = await createFullPackagesFromDeltas(updateInfo.ReleasesToApply, updateInfo.CurrentlyInstalledVersion, x => progress(x*4/5));
-                // The numbers in these progress reports are rather arbitrary. Experience indicates that applying the deltas takes most of the time.
-                // Allocating 80% to that process is a crude approximation. The remaining identifiable steps are simply allocated equal time chunks
-                // of 4% each.
-                // These changes should probably not be pushed upstream without further enhancement. The time to apply deltas is probably dependent
-                // on the size and complexity of the package being updated.
-                progress(80);
+                progress(0);
+
+                // Progress range: 00 -> 40
+                var release = await createFullPackagesFromDeltas(updateInfo.ReleasesToApply, updateInfo.CurrentlyInstalledVersion, new ApplyReleasesProgress(updateInfo.ReleasesToApply.Count, x => progress(CalculateProgress(x, 0, 40))));
+
+                progress(40);
 
                 if (release == null) {
                     if (attemptingFullInstall) {
@@ -60,23 +59,32 @@ namespace Squirrel
                     return getDirectoryForRelease(updateInfo.CurrentlyInstalledVersion.Version).FullName;
                 }
 
-                var ret = await this.ErrorIfThrows(() => installPackageToAppDir(updateInfo, release), 
+                // Progress range: 40 -> 80
+                var ret = await this.ErrorIfThrows(() => installPackageToAppDir(updateInfo, release, x => progress(CalculateProgress(x, 40, 80))), 
                     "Failed to install package to app dir");
-                progress(84);
+
+                progress(80);
 
                 var currentReleases = await this.ErrorIfThrows(() => updateLocalReleasesFile(),
                     "Failed to update local releases file");
-                progress(88);
+
+                progress(85);
 
                 var newVersion = currentReleases.MaxBy(x => x.Version).First().Version;
                 executeSelfUpdate(newVersion);
 
+                progress(90);
+
                 await this.ErrorIfThrows(() => invokePostInstall(newVersion, attemptingFullInstall, false, silentInstall),
                     "Failed to invoke post-install");
-                progress(92);
+
+                progress(95);
 
                 this.Log().Info("Starting fixPinnedExecutables");
+
                 this.ErrorIfThrows(() => fixPinnedExecutables(updateInfo.FutureReleaseEntry.Version));
+
+                progress(96);
 
                 this.Log().Info("Fixing up tray icons");
 
@@ -85,9 +93,11 @@ namespace Squirrel
                 var allExes = appDir.GetFiles("*.exe").Select(x => x.Name).ToList();
 
                 this.ErrorIfThrows(() => trayFixer.RemoveDeadEntries(allExes, rootAppDirectory, updateInfo.FutureReleaseEntry.Version.ToString()));
-                progress(96);
+
+                progress(97);
 
                 unshimOurselves();
+
                 progress(98);
 
                 try {
@@ -98,6 +108,7 @@ namespace Squirrel
                 } catch (Exception ex) {
                     this.Log().WarnException("Failed to clean dead versions, continuing anyways", ex);
                 }
+
                 progress(100);
 
                 return ret;
@@ -216,7 +227,6 @@ namespace Squirrel
                 var zf = new ZipPackage(Path.Combine(
                     Utility.PackageDirectoryForAppDir(rootAppDirectory),
                     thisRelease.Filename));
-
                 var exePath = Path.Combine(Utility.AppDirForRelease(rootAppDirectory, thisRelease), exeName);
 
                 var fileVerInfo = FileVersionInfo.GetVersionInfo(exePath);
@@ -296,7 +306,7 @@ namespace Squirrel
                 fixPinnedExecutables(zf.Version);
             }
 
-            Task<string> installPackageToAppDir(UpdateInfo updateInfo, ReleaseEntry release)
+            Task<string> installPackageToAppDir(UpdateInfo updateInfo, ReleaseEntry release, Action<int> progressCallback)
             {
                 return Task.Run(async () => {
                     var target = getDirectoryForRelease(release.Version);
@@ -314,7 +324,8 @@ namespace Squirrel
                         await ReleasePackage.ExtractZipForInstall(
                             Path.Combine(updateInfo.PackageDirectory, release.Filename),
                             target.FullName,
-                        	rootAppDirectory);
+                            rootAppDirectory,
+                            progressCallback);
                     }
                     catch (Exception ex)
                     {
@@ -335,19 +346,16 @@ namespace Squirrel
                 });
             }
 
-            async Task<ReleaseEntry> createFullPackagesFromDeltas(IEnumerable<ReleaseEntry> releasesToApply, ReleaseEntry currentVersion, Action<int> progress = null, int done = 0)
+            async Task<ReleaseEntry> createFullPackagesFromDeltas(IEnumerable<ReleaseEntry> releasesToApply, ReleaseEntry currentVersion, ApplyReleasesProgress progress)
             {
                 Contract.Requires(releasesToApply != null);
 
-                progress = progress ?? (_ => { });
+                progress = progress ?? new ApplyReleasesProgress(releasesToApply.Count(), x => { });
 
                 // If there are no remote releases at all, bail
                 if (!releasesToApply.Any()) {
                     return null;
                 }
-
-                var startProgress = (done) * 100 / (done + releasesToApply.Count());
-                var endProgress = (done + 1) * 100 / (done + releasesToApply.Count());
 
                 // If there are no deltas in our list, we're already done
                 if (releasesToApply.All(x => !x.IsDelta)) {
@@ -358,6 +366,16 @@ namespace Squirrel
                     throw new Exception("Cannot apply combinations of delta and full packages");
                 }
 
+                // Progress calculation is "complex" here. We need to known how many releases, and then give each release a similar amount of
+                // progress. For example, when applying 5 releases:
+                //
+                // release 1: 00 => 20
+                // release 2: 20 => 40
+                // release 3: 40 => 60
+                // release 4: 60 => 80
+                // release 5: 80 => 100
+                // 
+
                 // Smash together our base full package and the nearest delta
                 var ret = await Task.Run(() => {
                     var basePkg = new ReleasePackage(Path.Combine(rootAppDirectory, "packages", currentVersion.Filename));
@@ -367,8 +385,10 @@ namespace Squirrel
 
                     return deltaBuilder.ApplyDeltaPackage(basePkg, deltaPkg,
                         Regex.Replace(deltaPkg.InputPackageFile, @"-delta.nupkg$", ".nupkg", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant),
-                        x => progress(startProgress + (endProgress - startProgress) * x / 100));
+                        x => progress.ReportReleaseProgress(x));
                 });
+
+                progress.FinishRelease();
 
                 if (releasesToApply.Count() == 1) {
                     return ReleaseEntry.GenerateFromFile(ret.InputPackageFile);
@@ -377,10 +397,8 @@ namespace Squirrel
                 var fi = new FileInfo(ret.InputPackageFile);
                 var entry = ReleaseEntry.GenerateFromFile(fi.OpenRead(), fi.Name);
 
-                progress(endProgress);
-
                 // Recursively combine the rest of them
-                return await createFullPackagesFromDeltas(releasesToApply.Skip(1), entry, progress, done + 1);
+                return await createFullPackagesFromDeltas(releasesToApply.Skip(1), entry, progress);
             }
 
             void executeSelfUpdate(SemanticVersion currentVersion)
@@ -476,7 +494,7 @@ namespace Squirrel
 
                 var resolveLink = new Func<FileInfo, ShellLink>(file => {
                     try {
-                        this.Log().Info("Examining Pin: " + file);
+                        this.Log().Debug("Examining Pin: " + file);
                         return new ShellLink(file.FullName);
                     } catch (Exception ex) {
                         var message = String.Format("File '{0}' could not be converted into a valid ShellLink", file.FullName);
@@ -576,25 +594,25 @@ namespace Squirrel
             // directory are "dead" (i.e. already uninstalled, but not deleted), and
             // we blow them away. This is to make sure that we don't attempt to run
             // an uninstaller on an already-uninstalled version.
-            async Task cleanDeadVersions(SemanticVersion originalVersion, SemanticVersion currentVersion, bool forceUninstall = false)
+            async Task cleanDeadVersions(SemanticVersion currentVersion, SemanticVersion newVersion, bool forceUninstall = false)
             {
-                if (currentVersion == null) return;
+                if (newVersion == null) return;
 
                 var di = new DirectoryInfo(rootAppDirectory);
                 if (!di.Exists) return;
 
-                this.Log().Info("cleanDeadVersions: for version {0}", currentVersion);
-
-                string originalVersionFolder = null;
-                if (originalVersion != null) {
-                    originalVersionFolder = getDirectoryForRelease(originalVersion).Name;
-                    this.Log().Info("cleanDeadVersions: exclude folder {0}", originalVersionFolder);
-                }
+                this.Log().Info("cleanDeadVersions: checking for version {0}", newVersion);
 
                 string currentVersionFolder = null;
                 if (currentVersion != null) {
                     currentVersionFolder = getDirectoryForRelease(currentVersion).Name;
-                    this.Log().Info("cleanDeadVersions: exclude folder {0}", currentVersionFolder);
+                    this.Log().Info("cleanDeadVersions: exclude current version folder {0}", currentVersionFolder);
+                }
+
+                string newVersionFolder = null;
+                if (newVersion != null) {
+                    newVersionFolder = getDirectoryForRelease(newVersion).Name;
+                    this.Log().Info("cleanDeadVersions: exclude new version folder {0}", newVersionFolder);
                 }
 
                 // NB: If we try to access a directory that has already been 
@@ -603,7 +621,7 @@ namespace Squirrel
                 // come from here.
                 var toCleanup = di.GetDirectories()
                     .Where(x => x.Name.ToLowerInvariant().Contains("app-"))
-                    .Where(x => x.Name != currentVersionFolder && x.Name != originalVersionFolder)
+                    .Where(x => x.Name != newVersionFolder && x.Name != currentVersionFolder)
                     .Where(x => !isAppFolderDead(x.FullName));
 
                 if (forceUninstall == false) {
@@ -631,7 +649,7 @@ namespace Squirrel
                 // Include dead folders in folders to :fire:
                 toCleanup = di.GetDirectories()
                     .Where(x => x.Name.ToLowerInvariant().Contains("app-"))
-                    .Where(x => x.Name != currentVersionFolder && x.Name != originalVersionFolder);
+                    .Where(x => x.Name != newVersionFolder && x.Name != currentVersionFolder);
 
                 // Get the current process list in an attempt to not burn 
                 // directories which have running processes
@@ -665,7 +683,7 @@ namespace Squirrel
                 var releaseEntry = default(ReleaseEntry);
 
                 foreach (var entry in entries) {
-                    if (entry.Version == currentVersion) {
+                    if (entry.Version == newVersion) {
                         releaseEntry = ReleaseEntry.GenerateFromFile(Path.Combine(pkgDir, entry.Filename));
                         continue;
                     }

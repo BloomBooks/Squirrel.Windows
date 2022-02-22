@@ -8,7 +8,7 @@ Frequently Asked Questions for Squirrel.Windows, organized by area below.
 ## Integrating
 
 1. **Can Squirrel.Windows be used on applications that aren't made with .Net?**  
-   Yes, you can package a non-c# application in the same manner as described in the Getting Started guide. For additional customization, see [custom squirrel events for non-c# apps](using/custom-squirrel-events-non-CS.md).  
+   Yes, you can package a non-c# application in the same manner as described in the Getting Started guide. For additional customization, see [custom squirrel events for non-c# apps](using/custom-squirrel-events-non-cs.md).  
 1. **How do I migrate a ClickOnce app to Squirrel?**  
    You may want to look into the [ClickOnceToSquirrelMigrator](https://github.com/flagbug/ClickOnceToSquirrelMigrator) migration helper.
 1. **How can I determine if my app is a Squirrel app? I provide a squirrel and non-squirrel install version and want to know which is running.**  
@@ -16,8 +16,8 @@ Frequently Asked Questions for Squirrel.Windows, organized by area below.
    
 ```
 var assembly = Assembly.GetEntryAssembly();   
-var updateDotExe = Path.Combine(Path.GetDirectoryName(assembly.Location), '..', 'Update.exe');
-var isInstalled = File.Exists(updateDotExe);
+var updateDotExe = Path.Combine(Path.GetDirectoryName(assembly.Location), "..", "Update.exe");
+var isSquirrelInstall = File.Exists(updateDotExe);
 ```
 
 ## Packaging
@@ -65,6 +65,8 @@ var isInstalled = File.Exists(updateDotExe);
    You can't. So, how can you do it? The basic trick that ClickOnce uses is, you have a folder of EXEs and DLLs, and an Application Shortcut. When ClickOnce goes to update its stuff, it builds a completely *new* folder of binaries, then the last thing it does is rewrite the app shortcut to point to the new folder.
 4. **My previous application version is still around after the update. Doesn't Squirrel clean up old versions?**  
    The current and immediately previous version of your application are not deleted on clean up (see [issue #589](https://github.com/Squirrel/Squirrel.Windows/issues/589)). 
+5. **How can I persist the [.NET Application Settings](https://docs.microsoft.com/en-us/dotnet/framework/winforms/advanced/application-settings-overview) after an update?**
+   See (https://github.com/Squirrel/Squirrel.Windows/issues/198#issuecomment-299262613) for a simple workaround if you want to keep using .NET Application Settings. Alternatively, consider using a solution that lets you control where the settings are persisted, and store settings in an app-specific location under `%LOCALAPPDATA%`.
 
 ---
 | Return: [Table of Contents](readme.md) |
